@@ -24,11 +24,12 @@ import {
   Tablets,
   TimerReset,
   UserRound,
+  Users,
   Wifi,
   X,
 } from 'lucide-react';
 
-type Tab = 'home' | 'prescriptions' | 'labs' | 'settings';
+type Tab = 'home' | 'prescriptions' | 'labs' | 'family' | 'settings';
 type SettingsSubpage = 'consent' | 'services' | 'security' | 'clinic' | 'doctor';
 type DoseStatus = 'taken' | 'missed' | 'upcoming';
 
@@ -52,6 +53,7 @@ const navItems: Array<{ id: Tab; label: string; icon: typeof Activity }> = [
   { id: 'home', label: 'Home/Card', icon: HeartPulse },
   { id: 'prescriptions', label: 'Prescriptions', icon: Tablets },
   { id: 'labs', label: 'Lab Reports', icon: ClipboardPlus },
+  { id: 'family', label: 'Family', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -135,6 +137,7 @@ function App() {
           )}
           {activeTab === 'prescriptions' && <PrescriptionsView onBack={() => selectTab('home')} />}
           {activeTab === 'labs' && <LabsView onBack={() => selectTab('home')} />}
+          {activeTab === 'family' && <FamilyView onBack={() => selectTab('home')} />}
           {activeTab === 'settings' && (settingsSubpage ? <SettingsSubpageView page={settingsSubpage} onBack={() => setSettingsSubpage(null)} /> : <SettingsView consents={consents} onBack={() => selectTab('home')} onOpen={setSettingsSubpage} />)}
         </div>
         <BottomNav activeTab={activeTab} setActiveTab={selectTab} />
@@ -210,7 +213,7 @@ function HealthCard() {
       <div className="absolute -right-10 -top-14 h-36 w-36 rounded-full border-[20px] border-white/5" />
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2"><LockKeyhole size={15} /><p className="text-[11px] font-bold uppercase tracking-[0.12em]">DoseTrace Universal Health ID</p></div>
-        <span className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[9px] font-semibold text-indigo-100"><ShieldCheck size={11} /> Protected</span>
+        <span className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[9px] font-semibold text-indigo-100"><ShieldCheck size={11} /> End-to-end encrypted</span>
       </div>
       <div className="relative mt-7 grid grid-cols-[1fr_auto] gap-4">
         <div className="space-y-4"><div><p className="text-[9px] uppercase tracking-wider text-indigo-200">Private Patient ID</p><p className="mt-1 font-mono text-sm font-semibold">PX-9921-ND</p></div><div className="flex gap-7"><div><p className="text-[9px] uppercase tracking-wider text-indigo-200">Blood Group</p><p className="mt-1 text-sm font-semibold">O+</p></div><div><p className="text-[9px] uppercase tracking-wider text-indigo-200">Active Clinic</p><p className="mt-1 max-w-[150px] text-xs font-medium leading-4">Outpatient Cardiology Unit</p></div></div></div>
@@ -251,7 +254,7 @@ function LabsView({ onBack }: { onBack: () => void }) {
 }
 
 function SettingsView({ consents, onBack, onOpen }: { consents: { biometrics: boolean; rx: boolean; history: boolean }; onBack: () => void; onOpen: (page: SettingsSubpage) => void }) {
-  return <PageShell title="Settings" subtitle="Your health data, your choices" onBack={onBack}><div className="space-y-4"><div className="flex flex-col items-center rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-xl font-bold text-indigo-600">JM</div><p className="mt-3 text-sm font-bold">Jordan M.</p><p className="mt-1 font-mono text-[10px] text-slate-400">ID: #PX-9921</p></div><SettingsGroup title="Privacy overview"><SettingsItem icon={ShieldCheck} label="Sharing permissions" value={`${Object.values(consents).filter(Boolean).length} of 3 active`} onClick={() => onOpen('consent')} /><SettingsItem icon={Wifi} label="Connected services" value="3 streams" onClick={() => onOpen('services')} /><SettingsItem icon={LockKeyhole} label="Security" value="Fully protected" onClick={() => onOpen('security')} /></SettingsGroup><SettingsGroup title="Care team"><SettingsItem icon={Stethoscope} label="Outpatient Cardiology Unit" value="Active clinic" onClick={() => onOpen('clinic')} /><SettingsItem icon={UserRound} label="Dr. Aisha Okonkwo" value="Cardiology" onClick={() => onOpen('doctor')} /></SettingsGroup></div></PageShell>;
+  return <PageShell title="Settings" subtitle="Your health data, your choices" onBack={onBack}><div className="space-y-4"><div className="flex flex-col items-center rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-xl font-bold text-indigo-600">JM</div><p className="mt-3 text-sm font-bold">Jordan M.</p><p className="mt-1 font-mono text-[10px] text-slate-400">ID: #PX-9921</p></div><SettingsGroup title="Privacy overview"><SettingsItem icon={ShieldCheck} label="Sharing permissions" value={`${Object.values(consents).filter(Boolean).length} of 3 active`} onClick={() => onOpen('consent')} /><SettingsItem icon={Wifi} label="Connected services" value="3 streams" onClick={() => onOpen('services')} /><SettingsItem icon={LockKeyhole} label="Security" value="End-to-end encrypted" onClick={() => onOpen('security')} /></SettingsGroup><SettingsGroup title="Care team"><SettingsItem icon={Stethoscope} label="Outpatient Cardiology Unit" value="Active clinic" onClick={() => onOpen('clinic')} /><SettingsItem icon={UserRound} label="Dr. Aisha Okonkwo" value="Cardiology" onClick={() => onOpen('doctor')} /></SettingsGroup></div></PageShell>;
 }
 
 function SettingsGroup({ title, children }: { title: string; children: ReactNode }) { return <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"><p className="px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</p>{children}</div>; }
@@ -262,7 +265,7 @@ function SettingsSubpageView({ page, onBack }: { page: SettingsSubpage; onBack: 
   const content: Record<SettingsSubpage, { title: string; subtitle: string; heading: string; detail: string }> = {
     consent: { title: 'Sharing permissions', subtitle: 'Control what health data you share', heading: 'Your active permissions', detail: 'Review and adjust the three sharing settings connected to DoseTrace. Changes apply right away to future data sharing.' },
     services: { title: 'Connected services', subtitle: 'Apps and devices linked to DoseTrace', heading: '3 services connected', detail: 'WONDRx Smart Pen, Apple HealthKit, and your clinic are currently connected for shared care.' },
-    security: { title: 'Security', subtitle: 'How your health data stays protected', heading: 'Fully protected', detail: 'Your Universal Health ID and connected health data use protected transfer and private patient identifiers.' },
+    security: { title: 'Security', subtitle: 'How your health data stays protected', heading: 'End-to-end encrypted', detail: 'Your Universal Health ID and connected health data use end-to-end encrypted transfer and anonymized patient identifiers.' },
     clinic: { title: 'Outpatient Cardiology Unit', subtitle: 'Active clinic', heading: 'Your care team', detail: 'This clinic can access the care data you have shared, including your medicines, health tracking, and lab reports.' },
     doctor: { title: 'Dr. Aisha Okonkwo', subtitle: 'Cardiology · Outpatient Cardiology Unit', heading: 'Next appointment · Oct 20', detail: 'Your routine follow-up is scheduled for 10:30 AM. Your current medicine supply and latest health data will be ready for review.' },
   };
@@ -532,8 +535,120 @@ function CameraModal({ onClose, onCapture, error, setError }: { onClose: () => v
   );
 }
 
+type FamilyMember = {
+  id: string;
+  name: string;
+  relation: string;
+  age: number;
+  conditions: string[];
+  medicines: number;
+  adherence: number;
+  lastCheckup: string;
+  status: 'good' | 'attention' | 'critical';
+  heartRate: number;
+  nextAppointment: string;
+};
+
+const familyMembers: FamilyMember[] = [
+  { id: 'f1', name: 'Margaret M.', relation: 'Mother', age: 68, conditions: ['Type 2 Diabetes', 'Hypertension'], medicines: 4, adherence: 85, lastCheckup: 'Aug 28, 2026', status: 'attention', heartRate: 76, nextAppointment: 'Sep 25, 2026' },
+  { id: 'f2', name: 'Robert M.', relation: 'Father', age: 71, conditions: ['Hypertension'], medicines: 2, adherence: 100, lastCheckup: 'Sep 2, 2026', status: 'good', heartRate: 68, nextAppointment: 'Oct 15, 2026' },
+  { id: 'f3', name: 'Sarah M.', relation: 'Sister', age: 34, conditions: ['Asthma'], medicines: 1, adherence: 90, lastCheckup: 'Jul 10, 2026', status: 'good', heartRate: 72, nextAppointment: 'Nov 5, 2026' },
+  { id: 'f4', name: 'Ethan M.', relation: 'Brother', age: 29, conditions: [], medicines: 0, adherence: 100, lastCheckup: 'Sep 8, 2026', status: 'good', heartRate: 65, nextAppointment: 'Dec 1, 2026' },
+];
+
+function FamilyView({ onBack }: { onBack: () => void }) {
+  const statusConfig: Record<FamilyMember['status'], { label: string; color: string; bg: string; dot: string }> = {
+    good: { label: 'Doing well', color: 'text-emerald-600', bg: 'bg-emerald-50', dot: 'bg-emerald-500' },
+    attention: { label: 'Needs attention', color: 'text-amber-600', bg: 'bg-amber-50', dot: 'bg-amber-500' },
+    critical: { label: 'Critical', color: 'text-rose-600', bg: 'bg-rose-50', dot: 'bg-rose-500' },
+  };
+
+  const goodCount = familyMembers.filter((m) => m.status === 'good').length;
+  const attentionCount = familyMembers.filter((m) => m.status === 'attention').length;
+
+  return (
+    <PageShell title="Family Status" subtitle="Health overview for your family members" onBack={onBack}>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Users size={17} /></span>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Family overview</p>
+              <h2 className="mt-0.5 text-sm font-bold text-slate-900">{familyMembers.length} members tracked</h2>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-3">
+            <div className="flex-1 rounded-xl bg-emerald-50 px-3 py-3 text-center">
+              <p className="text-lg font-bold text-emerald-600">{goodCount}</p>
+              <p className="text-[9px] font-medium text-emerald-700">Doing well</p>
+            </div>
+            <div className="flex-1 rounded-xl bg-amber-50 px-3 py-3 text-center">
+              <p className="text-lg font-bold text-amber-600">{attentionCount}</p>
+              <p className="text-[9px] font-medium text-amber-700">Needs attention</p>
+            </div>
+            <div className="flex-1 rounded-xl bg-slate-50 px-3 py-3 text-center">
+              <p className="text-lg font-bold text-slate-600">{familyMembers.length}</p>
+              <p className="text-[9px] font-medium text-slate-500">Total members</p>
+            </div>
+          </div>
+        </div>
+        {familyMembers.map((member) => {
+          const config = statusConfig[member.status];
+          return (
+            <div key={member.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
+                    {member.name.split(' ').map((n) => n[0]).join('')}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{member.name}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">{member.relation} · {member.age} yrs</p>
+                  </div>
+                </div>
+                <span className={`flex items-center gap-1.5 rounded-full ${config.bg} px-2 py-1 text-[9px] font-bold ${config.color}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
+                  {config.label}
+                </span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {member.conditions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {member.conditions.map((condition) => (
+                      <span key={condition} className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-medium text-slate-600">{condition}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400">No ongoing conditions</p>
+                )}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px]">
+                  <span className="flex items-center gap-1 text-slate-500"><Pill size={11} /> {member.medicines} medicines</span>
+                  <span className="flex items-center gap-1 text-slate-500"><HeartPulse size={11} /> {member.heartRate} bpm</span>
+                  <span className="flex items-center gap-1 text-slate-500"><CalendarDays size={11} /> {member.nextAppointment}</span>
+                </div>
+              </div>
+              {member.medicines > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1 flex justify-between text-[10px] font-medium text-slate-500">
+                    <span>Medicine adherence</span>
+                    <span>{member.adherence}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100">
+                    <div style={{ width: `${member.adherence}%` }} className={`h-2 rounded-full ${member.adherence >= 90 ? 'bg-emerald-500' : member.adherence >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 flex items-center gap-1 text-[10px] text-slate-400"><CheckCircle2 size={11} className="text-emerald-500" /> Last checkup: {member.lastCheckup}</p>
+            </div>
+          );
+        })}
+      </div>
+    </PageShell>
+  );
+}
+
 function BottomNav({ activeTab, setActiveTab }: { activeTab: Tab; setActiveTab: (tab: Tab) => void }) {
-  return <nav className="grid grid-cols-4 border-t border-slate-200 bg-white/95 px-2 py-2 backdrop-blur"><span className="sr-only">Primary navigation</span>{navItems.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setActiveTab(id)} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] font-semibold transition ${activeTab === id ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}><Icon size={18} strokeWidth={activeTab === id ? 2.3 : 1.8} /><span>{label}</span></button>)}</nav>;
+  return <nav className="grid grid-cols-5 border-t border-slate-200 bg-white/95 px-2 py-2 backdrop-blur"><span className="sr-only">Primary navigation</span>{navItems.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => setActiveTab(id)} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] font-semibold transition ${activeTab === id ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}><Icon size={18} strokeWidth={activeTab === id ? 2.3 : 1.8} /><span>{label}</span></button>)}</nav>;
 }
 
 export default App;
