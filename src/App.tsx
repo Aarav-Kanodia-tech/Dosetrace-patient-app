@@ -80,6 +80,7 @@ function App() {
   const [consents, setConsents] = useState({ biometrics: true, rx: true, history: false });
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
   const [dosageDetailOpen, setDosageDetailOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   function selectTab(tab: Tab) {
     setActiveTab(tab);
@@ -117,7 +118,7 @@ function App() {
     <main className="min-h-screen bg-slate-200 px-3 py-6 text-slate-900 sm:px-5">
       <div className="mx-auto my-0 flex min-h-[844px] max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-2xl">
         <div className="flex-1 overflow-y-auto px-4 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Header />
+          <Header onOpenNotifications={() => setNotificationsOpen(true)} />
           {activeTab === 'home' && (
             <HomeView
               isScanning={isScanning}
@@ -140,18 +141,19 @@ function App() {
       </div>
       {cameraOpen && <CameraModal onClose={() => setCameraOpen(false)} onCapture={handleCapture} error={cameraError} setError={setCameraError} />}
       {dosageDetailOpen && <DosageDetailView doses={doses} onMarkDose={markDose} onClose={() => setDosageDetailOpen(false)} />}
+      {notificationsOpen && <NotificationsPanel onClose={() => setNotificationsOpen(false)} />}
     </main>
   );
 }
 
-function Header() {
+function Header({ onOpenNotifications }: { onOpenNotifications: () => void }) {
   return (
     <header className="flex items-center justify-between py-5">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Welcome back</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950">My Health <span className="ml-1 rounded-md bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-600">ID: #PX-9921</span></h1>
       </div>
-      <button aria-label="Open notifications" className="relative rounded-full border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <button aria-label="Open medicine reminders" onClick={onOpenNotifications} className="relative rounded-full border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
         <Bell size={18} strokeWidth={1.8} />
         <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white" />
       </button>
@@ -266,6 +268,48 @@ function SettingsSubpageView({ page, onBack }: { page: SettingsSubpage; onBack: 
   };
   const details = content[page];
   return <PageShell title={details.title} subtitle={details.subtitle} onBack={onBack}><div className="space-y-3"><div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><ShieldCheck size={22} /></div><h3 className="mt-4 text-sm font-bold text-slate-900">{details.heading}</h3><p className="mt-2 text-xs leading-5 text-slate-500">{details.detail}</p></div><div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p><p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-600"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected and up to date</p></div></div></PageShell>;
+}
+
+function NotificationsPanel({ onClose }: { onClose: () => void }) {
+  const reminders = [
+    { id: 'r1', medication: 'Metformin 500mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken' as const },
+    { id: 'r2', medication: 'Lisinopril 10mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken' as const },
+    { id: 'r3', medication: 'Aspirin 81mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken' as const },
+    { id: 'r4', medication: 'Metformin 500mg', time: '8:00 PM', message: 'Evening dose reminder', status: 'missed' as const },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/40 p-3 pt-20 backdrop-blur-sm sm:pt-10">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Past notifications</p>
+            <h2 className="mt-1 text-base font-bold text-slate-900">Medicine reminders</h2>
+          </div>
+          <button aria-label="Close medicine reminders" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"><X size={17} /></button>
+        </div>
+        <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {reminders.map((reminder) => {
+            const isTaken = reminder.status === 'taken';
+            return (
+              <div key={reminder.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${isTaken ? 'border-emerald-100 bg-emerald-50/70' : 'border-rose-100 bg-rose-50/70'}`}>
+                <span className={`rounded-xl bg-white p-2 ${isTaken ? 'text-emerald-600' : 'text-rose-500'}`}><Pill size={16} /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-slate-800">{reminder.medication}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">{reminder.message} · {reminder.time}</p>
+                </div>
+                <span className={`flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-1 text-[9px] font-bold ${isTaken ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {isTaken ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                  {isTaken ? 'Taken' : 'Missed'}
+                </span>
+              </div>
+            );
+          })}
+          <div className="flex items-center gap-2 px-2 py-2 text-[10px] text-slate-400"><Clock size={13} /> Your next reminder is Atorvastatin 20mg at 10:00 PM.</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DosageTrackerCard({ doses, onClick }: { doses: Dose[]; onClick: () => void }) {
