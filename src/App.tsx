@@ -6,8 +6,11 @@ import {
   CalendarDays,
   Camera,
   Check,
+  CheckCircle2,
   CircleAlert,
   ChevronRight,
+  Clock,
+  XCircle,
   ClipboardPlus,
   Cloud,
   HeartPulse,
@@ -27,6 +30,16 @@ import {
 
 type Tab = 'home' | 'prescriptions' | 'labs' | 'settings';
 type SettingsSubpage = 'consent' | 'services' | 'security' | 'clinic' | 'doctor';
+type DoseStatus = 'taken' | 'missed' | 'upcoming';
+
+type Dose = {
+  id: string;
+  medication: string;
+  amount: string;
+  time: string;
+  timeLabel: string;
+  status: DoseStatus;
+};
 
 type LabResult = {
   name: string;
@@ -40,6 +53,14 @@ const navItems: Array<{ id: Tab; label: string; icon: typeof Activity }> = [
   { id: 'prescriptions', label: 'Prescriptions', icon: Tablets },
   { id: 'labs', label: 'Lab Reports', icon: ClipboardPlus },
   { id: 'settings', label: 'Settings', icon: Settings },
+];
+
+const initialDoses: Dose[] = [
+  { id: 'd1', medication: 'Metformin', amount: '500mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+  { id: 'd2', medication: 'Lisinopril', amount: '10mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+  { id: 'd3', medication: 'Aspirin', amount: '81mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+  { id: 'd4', medication: 'Metformin', amount: '500mg', time: '20:00', timeLabel: 'Evening', status: 'missed' },
+  { id: 'd5', medication: 'Atorvastatin', amount: '20mg', time: '22:00', timeLabel: 'Night', status: 'upcoming' },
 ];
 
 const labResults: LabResult[] = [
@@ -57,6 +78,8 @@ function App() {
   const [scanComplete, setScanComplete] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(true);
   const [consents, setConsents] = useState({ biometrics: true, rx: true, history: false });
+  const [doses, setDoses] = useState<Dose[]>(initialDoses);
+  const [dosageDetailOpen, setDosageDetailOpen] = useState(false);
 
   function selectTab(tab: Tab) {
     setActiveTab(tab);
@@ -86,6 +109,10 @@ function App() {
     setConsents((current) => ({ ...current, [key]: !current[key] }));
   }
 
+  function markDose(id: string) {
+    setDoses((current) => current.map((dose) => (dose.id === id ? { ...dose, status: 'taken' as DoseStatus } : dose)));
+  }
+
   return (
     <main className="min-h-screen bg-slate-200 px-3 py-6 text-slate-900 sm:px-5">
       <div className="mx-auto my-0 flex min-h-[844px] max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-2xl">
@@ -101,6 +128,8 @@ function App() {
               setPrivacyOpen={setPrivacyOpen}
               consents={consents}
               toggleConsent={toggleConsent}
+              doses={doses}
+              onOpenDosageDetail={() => setDosageDetailOpen(true)}
             />
           )}
           {activeTab === 'prescriptions' && <PrescriptionsView onBack={() => selectTab('home')} />}
@@ -110,6 +139,7 @@ function App() {
         <BottomNav activeTab={activeTab} setActiveTab={selectTab} />
       </div>
       {cameraOpen && <CameraModal onClose={() => setCameraOpen(false)} onCapture={handleCapture} error={cameraError} setError={setCameraError} />}
+      {dosageDetailOpen && <DosageDetailView doses={doses} onMarkDose={markDose} onClose={() => setDosageDetailOpen(false)} />}
     </main>
   );
 }
@@ -138,6 +168,8 @@ function HomeView({
   setPrivacyOpen,
   consents,
   toggleConsent,
+  doses,
+  onOpenDosageDetail,
 }: {
   isScanning: boolean;
   scanComplete: boolean;
@@ -147,10 +179,13 @@ function HomeView({
   setPrivacyOpen: (value: boolean) => void;
   consents: { biometrics: boolean; rx: boolean; history: boolean };
   toggleConsent: (key: 'biometrics' | 'rx' | 'history') => void;
+  doses: Dose[];
+  onOpenDosageDetail: () => void;
 }) {
   return (
     <div className="space-y-4">
       <HealthCard />
+      <DosageTrackerCard doses={doses} onClick={onOpenDosageDetail} />
       <RegimenCard />
       <section>
         <button onClick={handleScan} disabled={isScanning} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 active:scale-[0.99] disabled:cursor-wait disabled:bg-emerald-600">
@@ -231,6 +266,129 @@ function SettingsSubpageView({ page, onBack }: { page: SettingsSubpage; onBack: 
   };
   const details = content[page];
   return <PageShell title={details.title} subtitle={details.subtitle} onBack={onBack}><div className="space-y-3"><div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><ShieldCheck size={22} /></div><h3 className="mt-4 text-sm font-bold text-slate-900">{details.heading}</h3><p className="mt-2 text-xs leading-5 text-slate-500">{details.detail}</p></div><div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p><p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-600"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected and up to date</p></div></div></PageShell>;
+}
+
+function DosageTrackerCard({ doses, onClick }: { doses: Dose[]; onClick: () => void }) {
+  const taken = doses.filter((d) => d.status === 'taken').length;
+  const missed = doses.filter((d) => d.status === 'missed').length;
+  const upcoming = doses.filter((d) => d.status === 'upcoming').length;
+  const total = doses.length;
+  const pct = Math.round((taken / total) * 100);
+  const allTaken = taken === total;
+  const hasMissed = missed > 0;
+
+  return (
+    <button onClick={onClick} className="flex w-full flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm transition hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Tablets size={17} /></span>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Today's dosage</p>
+            <h2 className="mt-0.5 text-sm font-bold text-slate-900">Adherence tracker</h2>
+          </div>
+        </div>
+        <span className={`whitespace-nowrap rounded-full px-2 py-1 text-[9px] font-bold ${allTaken ? 'bg-emerald-50 text-emerald-600' : hasMissed ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
+          {allTaken ? 'All taken' : hasMissed ? `${missed} missed` : `${upcoming} upcoming`}
+        </span>
+      </div>
+      <div>
+        <div className="mb-1.5 flex justify-between text-[10px] font-medium text-slate-500">
+          <span>{taken} of {total} doses taken</span>
+          <span>{pct}%</span>
+        </div>
+        <div className="flex h-2 gap-1 overflow-hidden rounded-full bg-slate-100">
+          <div style={{ width: `${(taken / total) * 100}%` }} className="h-2 rounded-full bg-emerald-500" />
+          {missed > 0 && <div style={{ width: `${(missed / total) * 100}%` }} className="h-2 rounded-full bg-rose-400" />}
+        </div>
+      </div>
+      <div className="flex items-center gap-4 text-[10px]">
+        <span className="flex items-center gap-1 font-medium text-emerald-600"><CheckCircle2 size={12} /> {taken} taken</span>
+        <span className="flex items-center gap-1 font-medium text-rose-500"><XCircle size={12} /> {missed} missed</span>
+        <span className="flex items-center gap-1 font-medium text-slate-400"><Clock size={12} /> {upcoming} upcoming</span>
+      </div>
+      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] font-semibold text-indigo-600">
+        <span>View full routine</span>
+        <ChevronRight size={14} />
+      </div>
+    </button>
+  );
+}
+
+function DosageDetailView({ doses, onMarkDose, onClose }: { doses: Dose[]; onMarkDose: (id: string) => void; onClose: () => void }) {
+  const taken = doses.filter((d) => d.status === 'taken').length;
+  const missed = doses.filter((d) => d.status === 'missed').length;
+  const upcoming = doses.filter((d) => d.status === 'upcoming').length;
+  const total = doses.length;
+  const pct = Math.round((taken / total) * 100);
+
+  const statusConfig: Record<DoseStatus, { label: string; icon: typeof Check; color: string; bg: string; border: string }> = {
+    taken: { label: 'Taken', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+    missed: { label: 'Missed', icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' },
+    upcoming: { label: 'Upcoming', icon: Clock, color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200' },
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 backdrop-blur-sm sm:items-center">
+      <div className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-slate-50 shadow-2xl sm:rounded-3xl">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Tablets size={18} /></span>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Today's Dosage Routine</h2>
+              <p className="text-[10px] text-slate-400">Sep 11, 2026</p>
+            </div>
+          </div>
+          <button aria-label="Close dosage detail" onClick={onClose} className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mb-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="mb-2 flex justify-between text-[10px] font-medium text-slate-500">
+              <span>Daily adherence</span>
+              <span>{taken} of {total} doses · {pct}%</span>
+            </div>
+            <div className="flex h-2.5 gap-1 overflow-hidden rounded-full bg-slate-100">
+              <div style={{ width: `${(taken / total) * 100}%` }} className="h-2.5 rounded-full bg-emerald-500" />
+              {missed > 0 && <div style={{ width: `${(missed / total) * 100}%` }} className="h-2.5 rounded-full bg-rose-400" />}
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-[10px]">
+              <span className="flex items-center gap-1 font-medium text-emerald-600"><CheckCircle2 size={12} /> {taken} taken</span>
+              <span className="flex items-center gap-1 font-medium text-rose-500"><XCircle size={12} /> {missed} missed</span>
+              <span className="flex items-center gap-1 font-medium text-slate-400"><Clock size={12} /> {upcoming} upcoming</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {doses.map((dose) => {
+              const config = statusConfig[dose.status];
+              const StatusIcon = config.icon;
+              return (
+                <div key={dose.id} className={`rounded-2xl border ${config.border} ${config.bg} p-4`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`rounded-lg bg-white p-2 ${config.color}`}><Pill size={16} /></span>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{dose.medication} <span className="font-medium text-slate-500">({dose.amount})</span></p>
+                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400"><Clock size={11} /> {dose.timeLabel} · {dose.time}</p>
+                      </div>
+                    </div>
+                    <span className={`flex items-center gap-1 rounded-full bg-white px-2 py-1 text-[9px] font-bold ${config.color}`}>
+                      <StatusIcon size={11} /> {config.label}
+                    </span>
+                  </div>
+                  {dose.status !== 'taken' && (
+                    <button onClick={() => onMarkDose(dose.id)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-emerald-600 active:scale-[0.99]">
+                      <Check size={14} /> Mark as taken
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CameraModal({ onClose, onCapture, error, setError }: { onClose: () => void; onCapture: () => void; error: string | null; setError: (value: string | null) => void }) {
