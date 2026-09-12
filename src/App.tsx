@@ -49,6 +49,48 @@ type LabResult = {
   status: 'Normal' | 'Borderline';
 };
 
+type FamilyDose = {
+  id: string;
+  medication: string;
+  amount: string;
+  time: string;
+  timeLabel: string;
+  status: DoseStatus;
+};
+
+type FamilyPrescription = {
+  name: string;
+  dose: string;
+  daysRemaining: number;
+  status: 'Active' | 'Refill needed';
+};
+
+type FamilyLab = {
+  name: string;
+  value: string;
+  reference: string;
+  status: 'Normal' | 'Borderline';
+};
+
+type FamilyMember = {
+  id: string;
+  name: string;
+  relation: string;
+  age: number;
+  conditions: string[];
+  medicines: number;
+  adherence: number;
+  lastCheckup: string;
+  status: 'good' | 'attention' | 'critical';
+  heartRate: number;
+  nextAppointment: string;
+  bloodGroup: string;
+  clinic: string;
+  doses: FamilyDose[];
+  prescriptions: FamilyPrescription[];
+  labs: FamilyLab[];
+};
+
 const navItems: Array<{ id: Tab; label: string; icon: typeof Activity }> = [
   { id: 'home', label: 'Home/Card', icon: HeartPulse },
   { id: 'prescriptions', label: 'Prescriptions', icon: Tablets },
@@ -73,6 +115,113 @@ const labResults: LabResult[] = [
   { name: 'eGFR', value: '78 mL/min', reference: 'Ref: > 60 · Aug 18, 2026', status: 'Normal' },
 ];
 
+const familyMembers: FamilyMember[] = [
+  {
+    id: 'f1',
+    name: 'Margaret M.',
+    relation: 'Mother',
+    age: 68,
+    conditions: ['Type 2 Diabetes', 'High Blood Pressure'],
+    medicines: 4,
+    adherence: 85,
+    lastCheckup: 'Aug 28, 2026',
+    status: 'attention',
+    heartRate: 76,
+    nextAppointment: 'Sep 25, 2026',
+    bloodGroup: 'A+',
+    clinic: 'Family Care Clinic',
+    doses: [
+      { id: 'm1d1', medication: 'Metformin', amount: '500mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+      { id: 'm1d2', medication: 'Metformin', amount: '500mg', time: '20:00', timeLabel: 'Evening', status: 'missed' },
+      { id: 'm1d3', medication: 'Lisinopril', amount: '10mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+      { id: 'm1d4', medication: 'Glipizide', amount: '5mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+      { id: 'm1d5', medication: 'Atorvastatin', amount: '20mg', time: '22:00', timeLabel: 'Night', status: 'upcoming' },
+    ],
+    prescriptions: [
+      { name: 'Metformin 500mg', dose: '2x Daily', daysRemaining: 12, status: 'Active' },
+      { name: 'Lisinopril 10mg', dose: '1x Daily', daysRemaining: 5, status: 'Refill needed' },
+      { name: 'Glipizide 5mg', dose: '1x Daily', daysRemaining: 20, status: 'Active' },
+      { name: 'Atorvastatin 20mg', dose: '1x Nightly', daysRemaining: 15, status: 'Active' },
+    ],
+    labs: [
+      { name: 'HbA1c', value: '7.2%', reference: 'Ref: < 7.0% · Aug 28, 2026', status: 'Borderline' },
+      { name: 'Fasting Glucose', value: '128 mg/dL', reference: 'Ref: 70–99 · Aug 28, 2026', status: 'Borderline' },
+      { name: 'LDL Cholesterol', value: '95 mg/dL', reference: 'Ref: < 100 · Aug 28, 2026', status: 'Normal' },
+    ],
+  },
+  {
+    id: 'f2',
+    name: 'Robert M.',
+    relation: 'Father',
+    age: 71,
+    conditions: ['High Blood Pressure'],
+    medicines: 2,
+    adherence: 100,
+    lastCheckup: 'Sep 2, 2026',
+    status: 'good',
+    heartRate: 68,
+    nextAppointment: 'Oct 15, 2026',
+    bloodGroup: 'O+',
+    clinic: 'Heart Care Center',
+    doses: [
+      { id: 'm2d1', medication: 'Lisinopril', amount: '20mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+      { id: 'm2d2', medication: 'Amlodipine', amount: '5mg', time: '08:00', timeLabel: 'Morning', status: 'taken' },
+    ],
+    prescriptions: [
+      { name: 'Lisinopril 20mg', dose: '1x Daily', daysRemaining: 18, status: 'Active' },
+      { name: 'Amlodipine 5mg', dose: '1x Daily', daysRemaining: 22, status: 'Active' },
+    ],
+    labs: [
+      { name: 'LDL Cholesterol', value: '82 mg/dL', reference: 'Ref: < 100 · Sep 2, 2026', status: 'Normal' },
+      { name: 'Creatinine', value: '1.0 mg/dL', reference: 'Ref: 0.7–1.2 · Sep 2, 2026', status: 'Normal' },
+    ],
+  },
+  {
+    id: 'f3',
+    name: 'Sarah M.',
+    relation: 'Sister',
+    age: 34,
+    conditions: ['Asthma'],
+    medicines: 1,
+    adherence: 90,
+    lastCheckup: 'Jul 10, 2026',
+    status: 'good',
+    heartRate: 72,
+    nextAppointment: 'Nov 5, 2026',
+    bloodGroup: 'B+',
+    clinic: 'City Health Clinic',
+    doses: [
+      { id: 'm3d1', medication: 'Albuterol', amount: '90mcg', time: 'As needed', timeLabel: 'Day', status: 'upcoming' },
+    ],
+    prescriptions: [
+      { name: 'Albuterol Inhaler 90mcg', dose: 'As needed', daysRemaining: 30, status: 'Active' },
+    ],
+    labs: [
+      { name: 'Spirometry FEV1', value: '2.8 L', reference: 'Ref: > 2.5 · Jul 10, 2026', status: 'Normal' },
+    ],
+  },
+  {
+    id: 'f4',
+    name: 'Ethan M.',
+    relation: 'Brother',
+    age: 29,
+    conditions: [],
+    medicines: 0,
+    adherence: 100,
+    lastCheckup: 'Sep 8, 2026',
+    status: 'good',
+    heartRate: 65,
+    nextAppointment: 'Dec 1, 2026',
+    bloodGroup: 'O-',
+    clinic: 'City Health Clinic',
+    doses: [],
+    prescriptions: [],
+    labs: [
+      { name: 'Complete Blood Count', value: 'Normal', reference: 'Ref: All normal · Sep 8, 2026', status: 'Normal' },
+    ],
+  },
+];
+
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [settingsSubpage, setSettingsSubpage] = useState<SettingsSubpage | null>(null);
@@ -83,6 +232,7 @@ function App() {
   const [doses, setDoses] = useState<Dose[]>(initialDoses);
   const [dosageDetailOpen, setDosageDetailOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [familyDetailId, setFamilyDetailId] = useState<string | null>(null);
 
   function selectTab(tab: Tab) {
     setActiveTab(tab);
@@ -116,6 +266,8 @@ function App() {
     setDoses((current) => current.map((dose) => (dose.id === id ? { ...dose, status: 'taken' as DoseStatus } : dose)));
   }
 
+  const familyDetailMember = familyDetailId ? familyMembers.find((m) => m.id === familyDetailId) ?? null : null;
+
   return (
     <main className="min-h-screen bg-slate-200 px-3 py-6 text-slate-900 sm:px-5">
       <div className="mx-auto my-0 flex min-h-[844px] max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-2xl">
@@ -137,7 +289,7 @@ function App() {
           )}
           {activeTab === 'prescriptions' && <PrescriptionsView onBack={() => selectTab('home')} />}
           {activeTab === 'labs' && <LabsView onBack={() => selectTab('home')} />}
-          {activeTab === 'family' && <FamilyView onBack={() => selectTab('home')} />}
+          {activeTab === 'family' && <FamilyView onBack={() => selectTab('home')} onOpenMember={(id) => setFamilyDetailId(id)} />}
           {activeTab === 'settings' && (settingsSubpage ? <SettingsSubpageView page={settingsSubpage} onBack={() => setSettingsSubpage(null)} /> : <SettingsView consents={consents} onBack={() => selectTab('home')} onOpen={setSettingsSubpage} />)}
         </div>
         <BottomNav activeTab={activeTab} setActiveTab={selectTab} />
@@ -145,6 +297,7 @@ function App() {
       {cameraOpen && <CameraModal onClose={() => setCameraOpen(false)} onCapture={handleCapture} error={cameraError} setError={setCameraError} />}
       {dosageDetailOpen && <DosageDetailView doses={doses} onMarkDose={markDose} onClose={() => setDosageDetailOpen(false)} />}
       {notificationsOpen && <NotificationsPanel onClose={() => setNotificationsOpen(false)} />}
+      {familyDetailMember && <FamilyMemberDetailView member={familyDetailMember} onClose={() => setFamilyDetailId(null)} />}
     </main>
   );
 }
@@ -258,7 +411,7 @@ function SettingsView({ consents, onBack, onOpen }: { consents: { biometrics: bo
 }
 
 function SettingsGroup({ title, children }: { title: string; children: ReactNode }) { return <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"><p className="px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</p>{children}</div>; }
-function SettingsItem({ icon: Icon, label, value, onClick }: { icon: typeof ShieldCheck; label: string; value: string; onClick: () => void }) { return <button onClick={onClick} className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 first:border-0"><Icon size={16} className="text-indigo-500" /><p className="flex-1 text-xs font-semibold text-slate-700">{label}</p><span className="text-[10px] text-slate-400">{value}</span><ChevronRight size={14} className="text-slate-300" /></button>; }
+function SettingsItem({ icon: Icon, label, value, onClick }: { icon: typeof ShieldCheck; label: string; value: string; onClick: () => void }) { return <button onClick={onClick} className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 first:border-t-0"><Icon size={16} className="text-indigo-500" /><p className="flex-1 text-xs font-semibold text-slate-700">{label}</p><span className="text-[10px] text-slate-400">{value}</span><ChevronRight size={14} className="text-slate-300" /></button>; }
 function PageShell({ title, subtitle, children, onBack }: { title: string; subtitle: string; children: ReactNode; onBack: () => void }) { return <div className="pb-4"><div className="border-b border-slate-200 pb-4"><div className="flex items-center gap-3"><button aria-label={`Back from ${title}`} onClick={onBack} className="rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-100"><ArrowRight size={16} className="rotate-180" /></button><h2 className="text-lg font-bold tracking-tight text-slate-950">{title}</h2></div><p className="mt-4 text-[10px] text-slate-400">{subtitle}</p></div><div className="mt-4">{children}</div></div>; }
 
 function SettingsSubpageView({ page, onBack }: { page: SettingsSubpage; onBack: () => void }) {
@@ -273,13 +426,43 @@ function SettingsSubpageView({ page, onBack }: { page: SettingsSubpage; onBack: 
   return <PageShell title={details.title} subtitle={details.subtitle} onBack={onBack}><div className="space-y-3"><div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><ShieldCheck size={22} /></div><h3 className="mt-4 text-sm font-bold text-slate-900">{details.heading}</h3><p className="mt-2 text-xs leading-5 text-slate-500">{details.detail}</p></div><div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p><p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-600"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected and up to date</p></div></div></PageShell>;
 }
 
+type NotificationReminder = {
+  id: string;
+  medication: string;
+  time: string;
+  message: string;
+  status: 'taken' | 'missed' | 'upcoming';
+  refillDate: string;
+};
+
+const notificationReminders: NotificationReminder[] = [
+  { id: 'r1', medication: 'Metformin 500mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken', refillDate: 'Oct 18, 2026' },
+  { id: 'r2', medication: 'Lisinopril 10mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken', refillDate: 'Sep 25, 2026' },
+  { id: 'r3', medication: 'Aspirin 81mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken', refillDate: 'Oct 5, 2026' },
+  { id: 'r4', medication: 'Metformin 500mg', time: '8:00 PM', message: 'Evening dose reminder', status: 'missed', refillDate: 'Oct 18, 2026' },
+  { id: 'r5', medication: 'Atorvastatin 20mg', time: '10:00 PM', message: 'Night dose reminder', status: 'upcoming', refillDate: 'Sep 14, 2026' },
+];
+
 function NotificationsPanel({ onClose }: { onClose: () => void }) {
-  const reminders = [
-    { id: 'r1', medication: 'Metformin 500mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken' as const },
-    { id: 'r2', medication: 'Lisinopril 10mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken' as const },
-    { id: 'r3', medication: 'Aspirin 81mg', time: '8:00 AM', message: 'Morning dose reminder', status: 'taken' as const },
-    { id: 'r4', medication: 'Metformin 500mg', time: '8:00 PM', message: 'Evening dose reminder', status: 'missed' as const },
-  ];
+  const today = new Date('2026-09-12');
+
+  const sortedReminders = [...notificationReminders].sort((a, b) => {
+    const dateA = new Date(a.refillDate);
+    const dateB = new Date(b.refillDate);
+    return dateA.getTime() - dateB.getTime();
+  });
+
+  function daysUntilRefill(refillDate: string): number {
+    const refill = new Date(refillDate);
+    const diff = refill.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function autoStatus(reminder: NotificationReminder): 'taken' | 'missed' | 'upcoming' | 'refill-soon' {
+    const days = daysUntilRefill(reminder.refillDate);
+    if (days <= 3) return 'refill-soon';
+    return reminder.status;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/40 p-3 pt-20 backdrop-blur-sm sm:pt-10">
@@ -292,18 +475,23 @@ function NotificationsPanel({ onClose }: { onClose: () => void }) {
           <button aria-label="Close medicine reminders" onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"><X size={17} /></button>
         </div>
         <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {reminders.map((reminder) => {
-            const isTaken = reminder.status === 'taken';
+          {sortedReminders.map((reminder) => {
+            const status = autoStatus(reminder);
+            const days = daysUntilRefill(reminder.refillDate);
+            const isTaken = status === 'taken';
+            const isMissed = status === 'missed';
+            const isRefillSoon = status === 'refill-soon';
             return (
-              <div key={reminder.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${isTaken ? 'border-emerald-100 bg-emerald-50/70' : 'border-rose-100 bg-rose-50/70'}`}>
-                <span className={`rounded-xl bg-white p-2 ${isTaken ? 'text-emerald-600' : 'text-rose-500'}`}><Pill size={16} /></span>
+              <div key={reminder.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${isTaken ? 'border-emerald-100 bg-emerald-50/70' : isMissed ? 'border-rose-100 bg-rose-50/70' : 'border-amber-100 bg-amber-50/70'}`}>
+                <span className={`rounded-xl bg-white p-2 ${isTaken ? 'text-emerald-600' : isMissed ? 'text-rose-500' : 'text-amber-500'}`}><Pill size={16} /></span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold text-slate-800">{reminder.medication}</p>
                   <p className="mt-0.5 text-[10px] text-slate-500">{reminder.message} · {reminder.time}</p>
+                  {isRefillSoon && <p className="mt-0.5 text-[9px] font-semibold text-amber-600">Refill in {days} day{days === 1 ? '' : 's'} · {reminder.refillDate}</p>}
                 </div>
-                <span className={`flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-1 text-[9px] font-bold ${isTaken ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {isTaken ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
-                  {isTaken ? 'Taken' : 'Missed'}
+                <span className={`flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-1 text-[9px] font-bold ${isTaken ? 'text-emerald-600' : isMissed ? 'text-rose-600' : 'text-amber-600'}`}>
+                  {isTaken ? <CheckCircle2 size={11} /> : isMissed ? <XCircle size={11} /> : <TimerReset size={11} />}
+                  {isTaken ? 'Taken' : isMissed ? 'Missed' : 'Refill soon'}
                 </span>
               </div>
             );
@@ -535,28 +723,7 @@ function CameraModal({ onClose, onCapture, error, setError }: { onClose: () => v
   );
 }
 
-type FamilyMember = {
-  id: string;
-  name: string;
-  relation: string;
-  age: number;
-  conditions: string[];
-  medicines: number;
-  adherence: number;
-  lastCheckup: string;
-  status: 'good' | 'attention' | 'critical';
-  heartRate: number;
-  nextAppointment: string;
-};
-
-const familyMembers: FamilyMember[] = [
-  { id: 'f1', name: 'Margaret M.', relation: 'Mother', age: 68, conditions: ['Type 2 Diabetes', 'Hypertension'], medicines: 4, adherence: 85, lastCheckup: 'Aug 28, 2026', status: 'attention', heartRate: 76, nextAppointment: 'Sep 25, 2026' },
-  { id: 'f2', name: 'Robert M.', relation: 'Father', age: 71, conditions: ['Hypertension'], medicines: 2, adherence: 100, lastCheckup: 'Sep 2, 2026', status: 'good', heartRate: 68, nextAppointment: 'Oct 15, 2026' },
-  { id: 'f3', name: 'Sarah M.', relation: 'Sister', age: 34, conditions: ['Asthma'], medicines: 1, adherence: 90, lastCheckup: 'Jul 10, 2026', status: 'good', heartRate: 72, nextAppointment: 'Nov 5, 2026' },
-  { id: 'f4', name: 'Ethan M.', relation: 'Brother', age: 29, conditions: [], medicines: 0, adherence: 100, lastCheckup: 'Sep 8, 2026', status: 'good', heartRate: 65, nextAppointment: 'Dec 1, 2026' },
-];
-
-function FamilyView({ onBack }: { onBack: () => void }) {
+function FamilyView({ onBack, onOpenMember }: { onBack: () => void; onOpenMember: (id: string) => void }) {
   const statusConfig: Record<FamilyMember['status'], { label: string; color: string; bg: string; dot: string }> = {
     good: { label: 'Doing well', color: 'text-emerald-600', bg: 'bg-emerald-50', dot: 'bg-emerald-500' },
     attention: { label: 'Needs attention', color: 'text-amber-600', bg: 'bg-amber-50', dot: 'bg-amber-500' },
@@ -595,7 +762,7 @@ function FamilyView({ onBack }: { onBack: () => void }) {
         {familyMembers.map((member) => {
           const config = statusConfig[member.status];
           return (
-            <div key={member.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <button key={member.id} onClick={() => onOpenMember(member.id)} className="w-full rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm transition hover:shadow-md">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
@@ -619,7 +786,7 @@ function FamilyView({ onBack }: { onBack: () => void }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-slate-400">No ongoing conditions</p>
+                  <p className="text-[10px] text-slate-400">No ongoing health issues</p>
                 )}
                 <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[10px]">
                   <span className="flex items-center gap-1 text-slate-500"><Pill size={11} /> {member.medicines} medicines</span>
@@ -630,7 +797,7 @@ function FamilyView({ onBack }: { onBack: () => void }) {
               {member.medicines > 0 && (
                 <div className="mt-3">
                   <div className="mb-1 flex justify-between text-[10px] font-medium text-slate-500">
-                    <span>Medicine adherence</span>
+                    <span>Medicine tracking</span>
                     <span>{member.adherence}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
@@ -639,11 +806,210 @@ function FamilyView({ onBack }: { onBack: () => void }) {
                 </div>
               )}
               <p className="mt-3 flex items-center gap-1 text-[10px] text-slate-400"><CheckCircle2 size={11} className="text-emerald-500" /> Last checkup: {member.lastCheckup}</p>
-            </div>
+              <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] font-semibold text-indigo-600">
+                <span>View full details</span>
+                <ChevronRight size={14} />
+              </div>
+            </button>
           );
         })}
       </div>
     </PageShell>
+  );
+}
+
+function FamilyMemberDetailView({ member, onClose }: { member: FamilyMember; onClose: () => void }) {
+  const statusConfig: Record<FamilyMember['status'], { label: string; color: string; bg: string; dot: string }> = {
+    good: { label: 'Doing well', color: 'text-emerald-600', bg: 'bg-emerald-50', dot: 'bg-emerald-500' },
+    attention: { label: 'Needs attention', color: 'text-amber-600', bg: 'bg-amber-50', dot: 'bg-amber-500' },
+    critical: { label: 'Critical', color: 'text-rose-600', bg: 'bg-rose-50', dot: 'bg-rose-500' },
+  };
+  const config = statusConfig[member.status];
+
+  const taken = member.doses.filter((d) => d.status === 'taken').length;
+  const missed = member.doses.filter((d) => d.status === 'missed').length;
+  const upcoming = member.doses.filter((d) => d.status === 'upcoming').length;
+  const total = member.doses.length;
+  const pct = total > 0 ? Math.round((taken / total) * 100) : 100;
+
+  const doseStatusConfig: Record<DoseStatus, { label: string; icon: typeof Check; color: string; bg: string; border: string }> = {
+    taken: { label: 'Taken', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+    missed: { label: 'Missed', icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' },
+    upcoming: { label: 'Upcoming', icon: Clock, color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200' },
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 backdrop-blur-sm sm:items-center">
+      <div className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-slate-50 shadow-2xl sm:rounded-3xl">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+              {member.name.split(' ').map((n) => n[0]).join('')}
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">{member.name}</h2>
+              <p className="text-[10px] text-slate-400">{member.relation} · {member.age} yrs · {member.bloodGroup}</p>
+            </div>
+          </div>
+          <button aria-label="Close family member details" onClick={onClose} className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`flex h-2 w-2 rounded-full ${config.dot}`} />
+                  <span className={`text-xs font-bold ${config.color}`}>{config.label}</span>
+                </div>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-medium text-slate-500">{member.clinic}</span>
+              </div>
+              <div className="mt-3 flex gap-3">
+                <div className="flex-1 rounded-xl bg-slate-50 px-3 py-2 text-center">
+                  <p className="text-sm font-bold text-slate-900">{member.heartRate}</p>
+                  <p className="text-[8px] text-slate-400">Heart rate (bpm)</p>
+                </div>
+                <div className="flex-1 rounded-xl bg-slate-50 px-3 py-2 text-center">
+                  <p className="text-sm font-bold text-slate-900">{member.medicines}</p>
+                  <p className="text-[8px] text-slate-400">Medicines</p>
+                </div>
+                <div className="flex-1 rounded-xl bg-slate-50 px-3 py-2 text-center">
+                  <p className="text-sm font-bold text-slate-900">{member.adherence}%</p>
+                  <p className="text-[8px] text-slate-400">On track</p>
+                </div>
+              </div>
+              {member.conditions.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Health issues</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {member.conditions.map((condition) => (
+                      <span key={condition} className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-medium text-slate-600">{condition}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {total > 0 && (
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Tablets size={16} /></span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Today's medicines</p>
+                    <h2 className="mt-0.5 text-sm font-bold text-slate-900">{taken} of {total} taken · {pct}%</h2>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="flex h-2.5 gap-1 overflow-hidden rounded-full bg-slate-100">
+                    <div style={{ width: `${(taken / total) * 100}%` }} className="h-2.5 rounded-full bg-emerald-500" />
+                    {missed > 0 && <div style={{ width: `${(missed / total) * 100}%` }} className="h-2.5 rounded-full bg-rose-400" />}
+                  </div>
+                  <div className="mt-3 flex items-center gap-4 text-[10px]">
+                    <span className="flex items-center gap-1 font-medium text-emerald-600"><CheckCircle2 size={12} /> {taken} taken</span>
+                    <span className="flex items-center gap-1 font-medium text-rose-500"><XCircle size={12} /> {missed} missed</span>
+                    <span className="flex items-center gap-1 font-medium text-slate-400"><Clock size={12} /> {upcoming} upcoming</span>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {member.doses.map((dose) => {
+                    const dConfig = doseStatusConfig[dose.status];
+                    const DIcon = dConfig.icon;
+                    return (
+                      <div key={dose.id} className={`rounded-xl border ${dConfig.border} ${dConfig.bg} px-3 py-2.5`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`rounded-lg bg-white p-1.5 ${dConfig.color}`}><Pill size={14} /></span>
+                            <div>
+                              <p className="text-[11px] font-bold text-slate-900">{dose.medication} <span className="font-medium text-slate-500">({dose.amount})</span></p>
+                              <p className="flex items-center gap-1 text-[9px] text-slate-400"><Clock size={10} /> {dose.timeLabel} · {dose.time}</p>
+                            </div>
+                          </div>
+                          <span className={`flex items-center gap-1 rounded-full bg-white px-1.5 py-0.5 text-[8px] font-bold ${dConfig.color}`}>
+                            <DIcon size={10} /> {dConfig.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {member.prescriptions.length > 0 && (
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Pill size={16} /></span>
+                  <p className="text-xs font-bold text-slate-800">Prescriptions</p>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {member.prescriptions.map((rx) => (
+                    <div key={rx.name} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{rx.name}</p>
+                          <p className="mt-0.5 text-[10px] text-slate-400">{rx.dose}</p>
+                        </div>
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-bold ${rx.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{rx.status}</span>
+                      </div>
+                      <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+                        <span>{rx.daysRemaining} days remaining</span>
+                        <span>{Math.round((rx.daysRemaining / 30) * 100)}%</span>
+                      </div>
+                      <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                        <div style={{ width: `${Math.round((rx.daysRemaining / 30) * 100)}%` }} className={`h-1.5 rounded-full ${rx.status === 'Refill needed' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {member.labs.length > 0 && (
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><ClipboardPlus size={16} /></span>
+                  <p className="text-xs font-bold text-slate-800">Lab Reports</p>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {member.labs.map((lab) => (
+                    <div key={lab.name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">{lab.name}</p>
+                        <p className="mt-1 text-[10px] text-slate-400">{lab.reference}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-slate-900">{lab.value}</p>
+                        <span className={`mt-1 inline-block rounded-full px-2 py-1 text-[9px] font-bold ${lab.status === 'Normal' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{lab.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><CalendarDays size={16} /></span>
+                <p className="text-xs font-bold text-slate-800">Appointments</p>
+              </div>
+              <div className="mt-3 rounded-xl bg-slate-50 px-3 py-3">
+                <div className="flex justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Next checkup</p>
+                    <p className="mt-1 text-[10px] text-slate-400">{member.clinic}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-indigo-600">{member.nextAppointment}</p>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 flex items-center gap-1 text-[10px] text-slate-400"><CheckCircle2 size={11} className="text-emerald-500" /> Last checkup: {member.lastCheckup}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
