@@ -12,12 +12,16 @@ import {
   Clock,
   XCircle,
   ClipboardPlus,
+  Eye,
+  EyeOff,
   HeartPulse,
   ImagePlus,
   KeyRound,
   LockKeyhole,
   Pill,
   QrCode,
+  Ruler,
+  Scale,
   Settings,
   ShieldCheck,
   Stethoscope,
@@ -29,8 +33,8 @@ import {
   Wifi,
   X,
 } from 'lucide-react';
-import { useDoses, useConsents, useFamilyData } from '@/lib/hooks';
-import type { Dose, FamilyDoseRow, FamilyPrescriptionRow, FamilyLabRow, FamilyMemberRow } from '@/lib/hooks';
+import { useDoses, useConsents, useFamilyData, useHistoryData } from '@/lib/hooks';
+import type { Dose, FamilyDoseRow, FamilyPrescriptionRow, FamilyLabRow, FamilyMemberRow, TreatmentHistoryRow, TreatmentSharingRow, VitalRow } from '@/lib/hooks';
 import { formatToday, daysUntil } from '@/lib/dates';
 import { useEscapeKey } from '@/lib/useEscapeKey';
 import { useToast } from '@/components/Toast';
@@ -58,7 +62,7 @@ type Prescription = {
 
 const navItems: Array<{ id: Tab; label: string; icon: typeof Activity }> = [
   { id: 'home', label: 'Home/Card', icon: HeartPulse },
-  { id: 'prescriptions', label: 'Prescriptions', icon: Tablets },
+  { id: 'prescriptions', label: 'Your History', icon: ClipboardPlus },
   { id: 'labs', label: 'Lab Reports', icon: ClipboardPlus },
   { id: 'family', label: 'Family', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -101,6 +105,7 @@ function App() {
   const { doses, loading: dosesLoading, markDose } = useDoses();
   const { consents, loading: consentsLoading, toggleConsent } = useConsents();
   const { data: familyData, loading: familyLoading } = useFamilyData();
+  const { data: historyData, loading: historyLoading, toggleSharing } = useHistoryData();
   const { toast, showToast } = useToast();
 
   function selectTab(tab: Tab) {
@@ -166,7 +171,17 @@ function App() {
                 onOpenDosageDetail={() => setDosageDetailOpen(true)}
               />
             )}
-            {activeTab === 'prescriptions' && <PrescriptionsView onBack={() => selectTab('home')} />}
+            {activeTab === 'prescriptions' && (
+              <HistoryView
+                onBack={() => selectTab('home')}
+                treatments={historyData.treatments}
+                sharing={historyData.sharing}
+                vitals={historyData.vitals}
+                loading={historyLoading}
+                onToggleSharing={toggleSharing}
+                showToast={showToast}
+              />
+            )}
             {activeTab === 'labs' && <LabsView onBack={() => selectTab('home')} />}
             {activeTab === 'family' && (
               <FamilyView
@@ -470,46 +485,211 @@ function ConsentRow({ label, detail, checked, onChange }: { label: string; detai
   );
 }
 
-function PrescriptionsView({ onBack }: { onBack: () => void }) {
+function HistoryView({
+  onBack,
+  treatments,
+  sharing,
+  vitals,
+  loading,
+  onToggleSharing,
+  showToast,
+}: {
+  onBack: () => void;
+  treatments: TreatmentHistoryRow[];
+  sharing: TreatmentSharingRow[];
+  vitals: VitalRow[];
+  loading: boolean;
+  onToggleSharing: (sharingId: string, hidden: boolean) => void;
+  showToast: (message: string) => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const activeTreatments = treatments.filter((t) => t.status === 'active');
+  const pastTreatments = treatments.filter((t) => t.status === 'completed');
+
+  const vitalIcons: Record<string, typeof Scale> = {
+    'Body Weight': Scale,
+    'Height': Ruler,
+    'BMI': Activity,
+    'Blood Pressure': HeartPulse,
+    'Resting Heart Rate': HeartPulse,
+  };
+
+  function handleToggleSharing(sharingId: string, doctorName: string, hidden: boolean, isPrescribing: boolean) {
+    if (isPrescribing) return;
+    onToggleSharing(sharingId, hidden);
+    showToast(hidden ? `Hidden from ${doctorName}` : `Shared with ${doctorName}`);
+  }
+
+  if (loading) {
+    return (
+      <PageShell title="Your History" subtitle="Treatment history, vitals & sharing" onBack={onBack}>
+        <ShimmerList count={4} />
+      </PageShell>
+    );
+  }
+
   return (
-    <PageShell title="Prescriptions" subtitle="Synced via WONDRx digital prescription" onBack={onBack}>
-      <div className="space-y-3">
-        {userPrescriptions.map((rx) => {
-          const pct = Math.round((rx.daysRemaining / 30) * 100);
-          const daysLeft = daysUntil(rx.refillDate);
-          const isRefillSoon = daysLeft <= 3;
+    <PageShell title="Your History" subtitle="Treatment history, vitals & sharing" onBack={onBack}>
+      <div className="space-y-5">
+        <VitalsCard vitals={vitals} vitalIcons={vitalIcons} />
+
+        <div>
+          <div className="flex items-center gap-2 px-1 pb-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Treatments</h3>
+            <span className="ml-auto text-[10px] font-medium text-slate-400">{activeTreatments.length} ongoing</span>
+          </div>
+          <div className="space-y-3">
+            {activeTreatments.map((tx) => (
+              <TreatmentCard
+                key={tx.id}
+                treatment={tx}
+                sharing={sharing.filter((s) => s.treatment_id === tx.id)}
+                expanded={expandedId === tx.id}
+                onToggle={() => setExpandedId(expandedId === tx.id ? null : tx.id)}
+                onToggleSharing={handleToggleSharing}
+              />
+            ))}
+          </div>
+        </div>
+
+        {pastTreatments.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 px-1 pb-2">
+              <span className="h-2 w-2 rounded-full bg-slate-400" />
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Past Treatments</h3>
+              <span className="ml-auto text-[10px] font-medium text-slate-400">{pastTreatments.length} completed</span>
+            </div>
+            <div className="space-y-3">
+              {pastTreatments.map((tx) => (
+                <TreatmentCard
+                  key={tx.id}
+                  treatment={tx}
+                  sharing={sharing.filter((s) => s.treatment_id === tx.id)}
+                  expanded={expandedId === tx.id}
+                  onToggle={() => setExpandedId(expandedId === tx.id ? null : tx.id)}
+                  onToggleSharing={handleToggleSharing}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
+function VitalsCard({ vitals, vitalIcons }: { vitals: VitalRow[]; vitalIcons: Record<string, typeof Scale> }) {
+  if (vitals.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Activity size={16} /></span>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Body metrics</p>
+          <h2 className="mt-0.5 text-sm font-bold text-slate-900">Vitals & Measurements</h2>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {vitals.map((v) => {
+          const Icon = vitalIcons[v.vital_type] ?? Activity;
           return (
-            <div key={rx.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="rounded-lg bg-indigo-50 p-2 text-indigo-500"><Pill size={16} /></span>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">{rx.name}</p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">{rx.dose}</p>
-                  </div>
-                </div>
-                <span className={`rounded-full px-2 py-1 text-[9px] font-bold ${rx.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                  {rx.status}
-                </span>
+            <div key={v.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+              <div className="flex items-center gap-1.5">
+                <Icon size={13} className="text-slate-400" />
+                <p className="text-[9px] font-medium uppercase tracking-wider text-slate-400">{v.vital_type}</p>
               </div>
-              <div className="mt-3 flex justify-between text-[10px] text-slate-400">
-                <span>{rx.daysRemaining} days remaining</span>
-                <span>{pct}%</span>
-              </div>
-              <div className="mt-1 h-1.5 rounded-full bg-slate-100">
-                <div style={{ width: `${pct}%` }} className={`h-1.5 rounded-full ${rx.status === 'Refill needed' ? 'bg-amber-500' : 'bg-indigo-500'}`} />
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-[10px]">
-                <span className="flex items-center gap-1 text-slate-400"><CalendarDays size={11} /> Refill by {rx.refillDate}</span>
-                {isRefillSoon && (
-                  <span className="flex items-center gap-1 font-semibold text-amber-600"><TimerReset size={11} /> In {daysLeft} day{daysLeft === 1 ? '' : 's'}</span>
-                )}
-              </div>
+              <p className="mt-1.5 text-lg font-bold tracking-tight text-slate-900">
+                {v.value}<span className="ml-1 text-[10px] font-medium text-slate-400">{v.unit}</span>
+              </p>
+              <p className="mt-0.5 text-[9px] text-slate-400">{v.date_recorded}</p>
             </div>
           );
         })}
       </div>
-    </PageShell>
+    </div>
+  );
+}
+
+function TreatmentCard({
+  treatment,
+  sharing,
+  expanded,
+  onToggle,
+  onToggleSharing,
+}: {
+  treatment: TreatmentHistoryRow;
+  sharing: TreatmentSharingRow[];
+  expanded: boolean;
+  onToggle: () => void;
+  onToggleSharing: (sharingId: string, doctorName: string, hidden: boolean, isPrescribing: boolean) => void;
+}) {
+  const isActive = treatment.status === 'active';
+  const visibleCount = sharing.filter((s) => !s.hidden).length;
+  const hiddenCount = sharing.filter((s) => s.hidden).length;
+
+  return (
+    <div className={`rounded-2xl border bg-white shadow-sm transition ${isActive ? 'border-slate-100' : 'border-slate-100 opacity-75'}`}>
+      <button onClick={onToggle} className="flex w-full items-start gap-3 p-4 text-left">
+        <span className={`mt-0.5 rounded-lg p-2 ${isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+          <Pill size={16} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-xs font-bold text-slate-900">{treatment.treatment_name}</p>
+            <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-bold ${isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+              {isActive ? 'Active' : 'Past'}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[10px] text-slate-500">{treatment.medication} · {treatment.dosage}</p>
+          <p className="mt-0.5 text-[10px] text-slate-400">{treatment.condition_treated}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px] text-slate-400">
+            <span className="flex items-center gap-1"><Stethoscope size={10} /> {treatment.doctor_name}</span>
+            <span className="text-slate-300">|</span>
+            <span className="flex items-center gap-1"><CalendarDays size={10} /> {treatment.start_date}{treatment.end_date ? ` → ${treatment.end_date}` : ' → present'}</span>
+          </div>
+        </div>
+        <ChevronRight size={16} className={`mt-1 shrink-0 text-slate-300 transition ${expanded ? 'rotate-90' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-100 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shared with doctors</p>
+            <span className="text-[9px] text-slate-400">{visibleCount} visible{hiddenCount > 0 ? ` · ${hiddenCount} hidden` : ''}</span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {sharing.map((s) => (
+              <div key={s.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 ${s.hidden ? 'bg-slate-50' : 'bg-white border border-slate-100'}`}>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600">
+                  {s.doctor_name.replace('Dr. ', '').split(' ').map((n) => n[0]).join('')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-semibold text-slate-700">{s.doctor_name}</p>
+                  <p className="text-[9px] text-slate-400">{s.doctor_specialty}{s.is_prescribing_doctor ? ' · Prescribing doctor' : ''}</p>
+                </div>
+                {s.is_prescribing_doctor ? (
+                  <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-indigo-50 px-2 py-1 text-[8px] font-bold text-indigo-600">
+                    <LockKeyhole size={9} /> Locked
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onToggleSharing(s.id, s.doctor_name, !s.hidden, s.is_prescribing_doctor)}
+                    className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[8px] font-bold transition ${s.hidden ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                  >
+                    {s.hidden ? <><EyeOff size={9} /> Hidden</> : <><Eye size={9} /> Visible</>}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <p className="mt-2 flex items-center gap-1 text-[9px] text-slate-400"><LockKeyhole size={10} /> You cannot hide a treatment from the prescribing doctor.</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

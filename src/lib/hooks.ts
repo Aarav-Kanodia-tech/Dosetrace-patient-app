@@ -137,6 +137,84 @@ export function useConsents() {
   return { consents, loading, toggleConsent };
 }
 
+export type TreatmentHistoryRow = {
+  id: string;
+  treatment_name: string;
+  medication: string;
+  dosage: string;
+  condition_treated: string;
+  doctor_name: string;
+  doctor_specialty: string;
+  start_date: string;
+  end_date: string | null;
+  status: 'active' | 'completed';
+  sort_order: number;
+};
+
+export type TreatmentSharingRow = {
+  id: string;
+  treatment_id: string;
+  doctor_name: string;
+  doctor_specialty: string;
+  is_prescribing_doctor: boolean;
+  hidden: boolean;
+  sort_order: number;
+};
+
+export type VitalRow = {
+  id: string;
+  vital_type: string;
+  value: string;
+  unit: string;
+  date_recorded: string;
+  sort_order: number;
+};
+
+export type HistoryData = {
+  treatments: TreatmentHistoryRow[];
+  sharing: TreatmentSharingRow[];
+  vitals: VitalRow[];
+};
+
+export function useHistoryData() {
+  const [data, setData] = useState<HistoryData>({
+    treatments: [],
+    sharing: [],
+    vitals: [],
+  });
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    const [txRes, shareRes, vitalsRes] = await Promise.all([
+      supabase.from('treatment_history').select('*').order('sort_order'),
+      supabase.from('treatment_sharing').select('*').order('sort_order'),
+      supabase.from('vitals').select('*').order('sort_order'),
+    ]);
+
+    setData({
+      treatments: (txRes.data ?? []) as TreatmentHistoryRow[],
+      sharing: (shareRes.data ?? []) as TreatmentSharingRow[],
+      vitals: (vitalsRes.data ?? []) as VitalRow[],
+    });
+  }, []);
+
+  useEffect(() => {
+    fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  const toggleSharing = useCallback(async (sharingId: string, hidden: boolean) => {
+    setData((current) => ({
+      ...current,
+      sharing: current.sharing.map((s) =>
+        s.id === sharingId ? { ...s, hidden } : s,
+      ),
+    }));
+    await supabase.from('treatment_sharing').update({ hidden }).eq('id', sharingId);
+  }, []);
+
+  return { data, loading, refetch: fetchAll, toggleSharing };
+}
+
 export function useFamilyData() {
   const [data, setData] = useState<FamilyData>({
     members: [],
