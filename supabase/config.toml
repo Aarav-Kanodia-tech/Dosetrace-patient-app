@@ -1,0 +1,2 @@
+[functions.scan-medicine]
+verify_jwt = false

@@ -1,18 +1,28 @@
-import { useState } from 'react';
-import { Check, X, PackageCheck, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Check, X, PackageCheck, Save, Loader2 } from 'lucide-react';
 import { useEscapeKey } from '@/lib/useEscapeKey';
+import type { RefillInfo } from '@/lib/ocr';
 
 type RefillReviewScreenProps = {
   photo: string;
+  aiResult: RefillInfo | null;
+  aiLoading: boolean;
   onSave: (medication: string, batchNumber: string) => void;
   onCancel: () => void;
   saving: boolean;
 };
 
-export function RefillReviewScreen({ photo, onSave, onCancel, saving }: RefillReviewScreenProps) {
+export function RefillReviewScreen({ photo, aiResult, aiLoading, onSave, onCancel, saving }: RefillReviewScreenProps) {
   useEscapeKey(onCancel);
   const [medication, setMedication] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
+
+  useEffect(() => {
+    if (aiResult) {
+      setMedication(aiResult.medication);
+      setBatchNumber(aiResult.batchNumber);
+    }
+  }, [aiResult]);
 
   function handleSave() {
     if (!medication.trim()) return;
@@ -29,7 +39,9 @@ export function RefillReviewScreen({ photo, onSave, onCancel, saving }: RefillRe
             </span>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Confirm Refill</h2>
-              <p className="text-[10px] text-slate-400">Enter details from the label</p>
+              <p className="text-[10px] text-slate-400">
+                {aiLoading ? 'Reading label...' : 'Review AI-detected details'}
+              </p>
             </div>
           </div>
           <button
@@ -46,37 +58,48 @@ export function RefillReviewScreen({ photo, onSave, onCancel, saving }: RefillRe
             <img src={photo} alt="Captured refill" className="h-48 w-full object-cover" />
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Medicine name
-              </label>
-              <input
-                type="text"
-                value={medication}
-                onChange={(e) => setMedication(e.target.value)}
-                placeholder="e.g. Metformin 500mg"
-                autoFocus
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white"
-              />
+          {aiLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-[11px] font-medium text-emerald-700">
+              <Loader2 size={14} className="animate-spin" />
+              AI is reading the medicine label...
             </div>
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Batch / Lot number
-              </label>
-              <input
-                type="text"
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-                placeholder="e.g. BN12345"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-emerald-400 focus:bg-white"
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] leading-4 text-emerald-800">
-            Review the photo above and enter the medicine name and batch number printed on the label.
-          </div>
+          {!aiLoading && (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Medicine name
+                </label>
+                <input
+                  type="text"
+                  value={medication}
+                  onChange={(e) => setMedication(e.target.value)}
+                  placeholder="e.g. Metformin 500mg"
+                  autoFocus
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Batch / Lot number
+                </label>
+                <input
+                  type="text"
+                  value={batchNumber}
+                  onChange={(e) => setBatchNumber(e.target.value)}
+                  placeholder="e.g. BN12345"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-emerald-400 focus:bg-white"
+                />
+              </div>
+            </div>
+          )}
+
+          {!aiLoading && (
+            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] leading-4 text-emerald-800">
+              AI has read the label. Review the details above and edit if needed before saving.
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 border-t border-slate-200 bg-white px-4 py-3">
@@ -88,7 +111,7 @@ export function RefillReviewScreen({ photo, onSave, onCancel, saving }: RefillRe
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !medication.trim()}
+            disabled={saving || aiLoading || !medication.trim()}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? (

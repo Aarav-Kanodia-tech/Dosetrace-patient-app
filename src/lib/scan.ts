@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { supabase } from './supabase';
+import type { ExtractedMedicine, RefillInfo } from './ocr';
 
 export type ScannedPrescriptionRow = {
   id: string;
@@ -27,6 +28,43 @@ export type ScannedRefillRow = {
   notes: string | null;
   confirmed: boolean;
 };
+
+const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-medicine`;
+
+export async function callScanFunction(image: string, mode: 'prescription' | 'refill'): Promise<{
+  medicines?: ExtractedMedicine[];
+  refill?: RefillInfo;
+  error?: string;
+}> {
+  const response = await fetch(FUNCTION_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({ image, mode }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    return { error: body.error ?? `Request failed (${response.status})` };
+  }
+
+  const data = await response.json();
+  if (data.error) return { error: data.error };
+
+  if (mode === 'prescription') {
+    return { medicines: data.medicines ?? [] };
+  } else {
+    return {
+      refill: {
+        medication: data.medication ?? '',
+        batchNumber: data.batchNumber ?? '',
+        manufacturer: data.manufacturer ?? 'Not detected',
+      },
+    };
+  }
+}
 
 export function useScannedRefills() {
   const [refills, setRefills] = useState<ScannedRefillRow[]>([]);
@@ -93,6 +131,17 @@ export function useSavePrescription() {
           nextSort = (maxSortOrder.data[0] as { sort_order: number }).sort_order + 1;
         }
 
+        const maxTxSort = await supabase
+          .from('treatment_history')
+          .select('sort_order')
+          .order('sort_order', { ascending: false })
+          .limit(1);
+
+        let nextTxSort = 1;
+        if (maxTxSort.data && maxTxSort.data.length > 0) {
+          nextTxSort = (maxTxSort.data[0] as { sort_order: number }).sort_order + 1;
+        }
+
         for (const med of medicines) {
           const { data: medData, error: medError } = await supabase
             .from('prescription_medicines')
@@ -125,7 +174,23 @@ export function useSavePrescription() {
             .update({ added_to_doses: true })
             .eq('id', medData.id);
 
+          const txId = `scan-tx-${medData.id}`;
+          await supabase.from('treatment_history').insert({
+            id: txId,
+            treatment_name: `${med.medication} Treatment`,
+            medication: med.medication,
+            dosage: med.frequency,
+            condition_treated: 'Prescribed via scan',
+            doctor_name: 'Scanned Prescription',
+            doctor_specialty: 'General',
+            start_date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            end_date: null,
+            status: 'active',
+            sort_order: nextTxSort,
+          });
+
           nextSort += 1;
+          nextTxSort += 1;
         }
         return true;
       } catch {

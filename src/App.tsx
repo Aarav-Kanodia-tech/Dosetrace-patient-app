@@ -41,8 +41,8 @@ import { useToast } from '@/components/Toast';
 import { ShimmerCard, ShimmerList } from '@/components/Shimmer';
 import { CameraModal, type CameraMode } from '@/components/CameraModal';
 import { PrescriptionReviewScreen } from '@/components/PrescriptionReviewScreen';
-import type { ExtractedMedicine } from '@/lib/ocr';
-import { useScannedRefills, useSavePrescription } from '@/lib/scan';
+import type { ExtractedMedicine, RefillInfo } from '@/lib/ocr';
+import { useScannedRefills, useSavePrescription, callScanFunction } from '@/lib/scan';
 import { RefillReviewScreen } from '@/components/RefillReviewScreen';
 
 type Tab = 'home' | 'prescriptions' | 'labs' | 'family' | 'settings';
@@ -103,6 +103,8 @@ function App() {
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [showRefillReview, setShowRefillReview] = useState(false);
   const [prescriptionMedicines, setPrescriptionMedicines] = useState<ExtractedMedicine[]>([]);
+  const [refillAiResult, setRefillAiResult] = useState<RefillInfo | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(true);
   const [dosageDetailOpen, setDosageDetailOpen] = useState(false);
@@ -134,18 +136,42 @@ function App() {
     setCameraError(null);
     setCapturedPhoto(null);
     setPrescriptionMedicines([]);
+    setRefillAiResult(null);
     setScanError(null);
     setCameraOpen(true);
   }
 
-  function handleCapture(imageData: string) {
+  async function handleCapture(imageData: string) {
     setCameraOpen(false);
     setCapturedPhoto(imageData);
+    setIsScanning(true);
+    setAiLoading(true);
+    setScanError(null);
+
     if (scanMode === 'prescription') {
-      setPrescriptionMedicines([]);
       setShowReview(true);
     } else {
       setShowRefillReview(true);
+    }
+
+    try {
+      const result = await callScanFunction(imageData, scanMode);
+      if (result.error) {
+ setScanError(result.error);
+ setShowReview(false);
+ setShowRefillReview(false);
+      } else if (scanMode === 'prescription' && result.medicines) {
+        setPrescriptionMedicines(result.medicines);
+      } else if (scanMode === 'refill' && result.refill) {
+        setRefillAiResult(result.refill);
+      }
+    } catch {
+      setScanError('Could not read the photo. Please try again or enter details manually.');
+      setShowReview(false);
+      setShowRefillReview(false);
+    } finally {
+      setAiLoading(false);
+      setIsScanning(false);
     }
   }
 
@@ -159,7 +185,7 @@ function App() {
   async function handleSavePrescription(medicines: Array<{ medication: string; amount: string; frequency: string; time_label: string; time: string }>) {
     const success = await savePrescription(medicines);
     if (success) {
-      showToast(`${medicines.length} medicine${medicines.length === 1 ? '' : 's'} added to your tracker`);
+      showToast(`${medicines.length} medicine${medicines.length === 1 ? '' : 's'} added to your tracker and history`);
       setShowReview(false);
       setPrescriptionMedicines([]);
       setCapturedPhoto(null);
@@ -244,6 +270,7 @@ function App() {
         <PrescriptionReviewScreen
           medicines={prescriptionMedicines}
           photo={capturedPhoto}
+          aiLoading={aiLoading}
           onSave={handleSavePrescription}
           onCancel={() => { setShowReview(false); setPrescriptionMedicines([]); setCapturedPhoto(null); }}
           saving={savingPrescription}
@@ -252,6 +279,8 @@ function App() {
       {showRefillReview && capturedPhoto && (
         <RefillReviewScreen
           photo={capturedPhoto}
+          aiResult={refillAiResult}
+          aiLoading={aiLoading}
           onSave={handleConfirmRefill}
           onCancel={() => { setShowRefillReview(false); setCapturedPhoto(null); }}
           saving={false}

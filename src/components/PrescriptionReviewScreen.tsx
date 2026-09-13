@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Check,
   X,
@@ -8,6 +8,7 @@ import {
   Clock,
   ScanLine,
   Save,
+  Loader2,
 } from 'lucide-react';
 import { useEscapeKey } from '@/lib/useEscapeKey';
 import type { ExtractedMedicine } from '@/lib/ocr';
@@ -19,6 +20,7 @@ type MedicineDraft = ExtractedMedicine & {
 type PrescriptionReviewScreenProps = {
   medicines: ExtractedMedicine[];
   photo: string;
+  aiLoading: boolean;
   onSave: (
     medicines: Array<{
       medication: string;
@@ -43,14 +45,17 @@ const FREQUENCY_OPTIONS = [
 export function PrescriptionReviewScreen({
   medicines,
   photo,
+  aiLoading,
   onSave,
   onCancel,
   saving,
 }: PrescriptionReviewScreenProps) {
   useEscapeKey(onCancel);
-  const [drafts, setDrafts] = useState<MedicineDraft[]>(
-    medicines.map((m, i) => ({ ...m, id: `draft-${i}-${Date.now()}` })),
-  );
+  const [drafts, setDrafts] = useState<MedicineDraft[]>([]);
+
+  useEffect(() => {
+    setDrafts(medicines.map((m, i) => ({ ...m, id: `draft-${i}-${Date.now()}` })));
+  }, [medicines]);
 
   function updateDraft(id: string, field: keyof MedicineDraft, value: string) {
     setDrafts((current) =>
@@ -113,7 +118,7 @@ export function PrescriptionReviewScreen({
             <div>
               <h2 className="text-sm font-bold text-slate-900">Review Medicines</h2>
               <p className="text-[10px] text-slate-400">
-                {drafts.length} medicine{drafts.length === 1 ? '' : 's'} listed
+                {aiLoading ? 'Reading prescription...' : `${drafts.length} medicine${drafts.length === 1 ? '' : 's'} detected`}
               </p>
             </div>
           </div>
@@ -130,13 +135,23 @@ export function PrescriptionReviewScreen({
           <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <img src={photo} alt="Captured prescription" className="h-44 w-full object-cover" />
           </div>
-          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] leading-4 text-amber-800">
-            Read the prescription photo above and add each medicine below. Enter the name, dosage, and schedule before saving to your daily tracker.
-          </div>
 
-          {drafts.length === 0 && (
+          {aiLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-[11px] font-medium text-indigo-700">
+              <Loader2 size={14} className="animate-spin" />
+              AI is reading your prescription...
+            </div>
+          )}
+
+          {!aiLoading && (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] leading-4 text-amber-800">
+              AI has read your prescription. Review and edit each medicine below before saving.
+            </div>
+          )}
+
+          {drafts.length === 0 && !aiLoading && (
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center">
-              <p className="text-xs text-slate-400">No medicines added yet. Use the button below to add one from the photo.</p>
+              <p className="text-xs text-slate-400">No medicines detected. Add one manually below.</p>
             </div>
           )}
 
@@ -178,11 +193,22 @@ export function PrescriptionReviewScreen({
                         ))}
                       </select>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                      <Clock size={11} />
-                      <span>
-                        {draft.time_label} · {draft.time}
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={draft.time_label}
+                        onChange={(e) => updateDraft(draft.id, 'time_label', e.target.value)}
+                        placeholder="Label"
+                        className="w-1/3 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:bg-white"
+                      />
+                      <input
+                        type="time"
+                        value={draft.time === 'As needed' ? '08:00' : draft.time}
+                        onChange={(e) => updateDraft(draft.id, 'time', e.target.value)}
+                        disabled={draft.time === 'As needed'}
+                        className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:bg-white disabled:opacity-50"
+                      />
+                      <Clock size={12} className="shrink-0 text-slate-400" />
                     </div>
                   </div>
                   <button
@@ -197,14 +223,14 @@ export function PrescriptionReviewScreen({
             ))}
           </div>
 
-          <button
-            onClick={addDraft}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-[11px] font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
-          >
-            <Plus size={14} /> Add medicine manually
-          </button>
-
-
+          {!aiLoading && (
+            <button
+              onClick={addDraft}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-[11px] font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
+            >
+              <Plus size={14} /> Add medicine manually
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 border-t border-slate-200 bg-white px-4 py-3">
@@ -216,7 +242,7 @@ export function PrescriptionReviewScreen({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || drafts.filter((d) => d.name.trim().length > 0).length === 0}
+            disabled={saving || aiLoading || drafts.filter((d) => d.name.trim().length > 0).length === 0}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? (
