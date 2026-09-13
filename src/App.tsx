@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Activity,
   ArrowRight,
   Bell,
   CalendarDays,
-  Camera,
   Check,
   CheckCircle2,
   CircleAlert,
@@ -14,10 +13,11 @@ import {
   ClipboardPlus,
   Eye,
   EyeOff,
+  FileText,
   HeartPulse,
-  ImagePlus,
   KeyRound,
   LockKeyhole,
+  PackageCheck,
   Pill,
   QrCode,
   Ruler,
@@ -39,6 +39,10 @@ import { formatToday, daysUntil } from '@/lib/dates';
 import { useEscapeKey } from '@/lib/useEscapeKey';
 import { useToast } from '@/components/Toast';
 import { ShimmerCard, ShimmerList } from '@/components/Shimmer';
+import { CameraModal, type CameraMode } from '@/components/CameraModal';
+import { PrescriptionReviewScreen } from '@/components/PrescriptionReviewScreen';
+import { scanPrescription, scanRefill, type ExtractedMedicine, type RefillInfo } from '@/lib/ocr';
+import { useScannedRefills, useSavePrescription } from '@/lib/scan';
 
 type Tab = 'home' | 'prescriptions' | 'labs' | 'family' | 'settings';
 type SettingsSubpage = 'consent' | 'services' | 'security' | 'clinic' | 'doctor';
@@ -92,8 +96,13 @@ type FamilyMember = FamilyMemberRow & {
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [settingsSubpage, setSettingsSubpage] = useState<SettingsSubpage | null>(null);
+  const [scanMode, setScanMode] = useState<CameraMode>('refill');
   const [isScanning, setIsScanning] = useState(false);
-  const [scanComplete, setScanComplete] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [refillResult, setRefillResult] = useState<RefillInfo | null>(null);
+  const [prescriptionMedicines, setPrescriptionMedicines] = useState<ExtractedMedicine[]>([]);
+  const [prescriptionRawText, setPrescriptionRawText] = useState('');
+  const [showReview, setShowReview] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(true);
   const [dosageDetailOpen, setDosageDetailOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -102,11 +111,13 @@ function App() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [tabTransitioning, setTabTransitioning] = useState(false);
 
-  const { doses, loading: dosesLoading, markDose } = useDoses();
+  const { doses, loading: dosesLoading, markDose, refetch: refetchDoses } = useDoses();
   const { consents, loading: consentsLoading, toggleConsent } = useConsents();
   const { data: familyData, loading: familyLoading } = useFamilyData();
   const { data: historyData, loading: historyLoading, toggleSharing } = useHistoryData();
   const { toast, showToast } = useToast();
+  const { saveRefill } = useScannedRefills();
+  const { saving: savingPrescription, savePrescription } = useSavePrescription();
 
   function selectTab(tab: Tab) {
     if (tab === activeTab) return;
@@ -116,22 +127,61 @@ function App() {
     window.setTimeout(() => setTabTransitioning(false), 200);
   }
 
-  function handleScan() {
+  function handleScan(mode: CameraMode) {
     if (isScanning) return;
+    setScanMode(mode);
     setCameraError(null);
+    setRefillResult(null);
+    setPrescriptionMedicines([]);
+    setPrescriptionRawText('');
+    setScanError(null);
     setCameraOpen(true);
   }
 
- function handleCapture() {
-  setCameraOpen(false);
-  setScanComplete(false);
-  setIsScanning(true);
+  async function handleCapture(imageData: string) {
+    setCameraOpen(false);
+    setIsScanning(true);
+    setScanError(null);
+    setRefillResult(null);
+    setShowReview(false);
 
-  window.setTimeout(async () => {
-    setIsScanning(false);
-    setScanComplete(true);
-  },1500);
-}
+    try {
+      if (scanMode === 'prescription') {
+        const { rawText, medicines } = await scanPrescription(imageData);
+        setPrescriptionRawText(rawText);
+        setPrescriptionMedicines(medicines);
+        setShowReview(true);
+      } else {
+        const { refill } = await scanRefill(imageData);
+        setRefillResult(refill);
+      }
+    } catch {
+      setScanError('Could not read the photo. Please try again or upload a clearer image.');
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  async function handleConfirmRefill() {
+    if (!refillResult) return;
+    await saveRefill(refillResult.medication, refillResult.batchNumber);
+    showToast(`${refillResult.medication} refill confirmed`);
+    setRefillResult(null);
+  }
+
+  async function handleSavePrescription(medicines: Array<{ medication: string; amount: string; frequency: string; time_label: string; time: string }>) {
+    const success = await savePrescription(medicines);
+    if (success) {
+      showToast(`${medicines.length} medicine${medicines.length === 1 ? '' : 's'} added to your tracker`);
+      setShowReview(false);
+      setPrescriptionMedicines([]);
+      setPrescriptionRawText('');
+      refetchDoses();
+    } else {
+      showToast('Could not save medicines. Please try again.');
+    }
+  }
+
   function handleMarkDose(id: string) {
     markDose(id);
     const dose = doses.find((d) => d.id === id);
@@ -158,9 +208,13 @@ function App() {
             {activeTab === 'home' && (
               <HomeView
                 isScanning={isScanning}
-                scanComplete={scanComplete}
-                handleScan={handleScan}
-                onDismiss={() => setScanComplete(false)}
+                scanMode={scanMode}
+                scanError={scanError}
+                refillResult={refillResult}
+                onScan={handleScan}
+                onConfirmRefill={handleConfirmRefill}
+                onDismissRefill={() => setRefillResult(null)}
+                onDismissError={() => setScanError(null)}
                 privacyOpen={privacyOpen}
                 setPrivacyOpen={setPrivacyOpen}
                 consents={consents}
@@ -201,7 +255,16 @@ function App() {
         </div>
         <BottomNav activeTab={activeTab} setActiveTab={selectTab} />
       </div>
-      {cameraOpen && <CameraModal onClose={() => setCameraOpen(false)} onCapture={handleCapture} onUploadFallback={handleCapture} error={cameraError} setError={setCameraError} />}
+      {cameraOpen && <CameraModal mode={scanMode} onClose={() => setCameraOpen(false)} onCapture={handleCapture} error={cameraError} setError={setCameraError} />}
+      {showReview && (
+        <PrescriptionReviewScreen
+          medicines={prescriptionMedicines}
+          rawText={prescriptionRawText}
+          onSave={handleSavePrescription}
+          onCancel={() => { setShowReview(false); setPrescriptionMedicines([]); setPrescriptionRawText(''); }}
+          saving={savingPrescription}
+        />
+      )}
       {dosageDetailOpen && <DosageDetailView doses={doses} onMarkDose={handleMarkDose} onClose={() => setDosageDetailOpen(false)} />}
       {notificationsOpen && <NotificationsPanel doses={doses} onClose={() => setNotificationsOpen(false)} />}
       {familyDetailMember && <FamilyMemberDetailView member={familyDetailMember} onClose={() => setFamilyDetailId(null)} />}
@@ -233,9 +296,13 @@ function Header({ onOpenNotifications, hasRefillAlerts }: { onOpenNotifications:
 
 function HomeView({
   isScanning,
-  scanComplete,
-  handleScan,
-  onDismiss,
+  scanMode,
+  scanError,
+  refillResult,
+  onScan,
+  onConfirmRefill,
+  onDismissRefill,
+  onDismissError,
   privacyOpen,
   setPrivacyOpen,
   consents,
@@ -246,9 +313,13 @@ function HomeView({
   onOpenDosageDetail,
 }: {
   isScanning: boolean;
-  scanComplete: boolean;
-  handleScan: () => void;
-  onDismiss: () => void;
+  scanMode: CameraMode;
+  scanError: string | null;
+  refillResult: RefillInfo | null;
+  onScan: (mode: CameraMode) => void;
+  onConfirmRefill: () => void;
+  onDismissRefill: () => void;
+  onDismissError: () => void;
   privacyOpen: boolean;
   setPrivacyOpen: (value: boolean) => void;
   consents: { biometrics: boolean; rx: boolean; history: boolean };
@@ -258,6 +329,8 @@ function HomeView({
   dosesLoading: boolean;
   onOpenDosageDetail: () => void;
 }) {
+  const scanningLabel = scanMode === 'prescription' ? 'Reading prescription...' : 'Processing refill photo...';
+
   return (
     <div className="space-y-4">
       <HealthCard />
@@ -267,21 +340,52 @@ function HomeView({
         <DosageTrackerCard doses={doses} onClick={onOpenDosageDetail} />
       )}
       <WeeklyAdherenceCard doses={doses} loading={dosesLoading} />
-      <section>
+      <section className="space-y-2.5">
         <button
-          onClick={handleScan}
+          onClick={() => onScan('refill')}
           disabled={isScanning}
           className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 active:scale-[0.99] disabled:cursor-wait disabled:bg-emerald-600"
         >
-          {isScanning ? <TimerReset className="animate-spin" size={19} /> : <Camera size={19} />}
-          <span>{isScanning ? 'Processing refill photo...' : 'Scan refill'}</span>
+          {isScanning && scanMode === 'refill' ? <TimerReset className="animate-spin" size={19} /> : <PackageCheck size={19} />}
+          <span>{isScanning && scanMode === 'refill' ? scanningLabel : 'Scan Refill'}</span>
           {!isScanning && <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] uppercase tracking-wide">Open Camera</span>}
         </button>
-        {scanComplete && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800">
-            <Check className="mt-0.5 shrink-0" size={15} />
-            <p><strong>Scan refill confirmed:</strong> Batch #MF-2026-X. Supply start updated for your care team.</p>
-            <button aria-label="Dismiss confirmation" onClick={onDismiss} className="ml-auto text-emerald-500"><X size={14} /></button>
+        <button
+          onClick={() => onScan('prescription')}
+          disabled={isScanning}
+          className="flex w-full items-center justify-center gap-3 rounded-2xl bg-indigo-500 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-600 active:scale-[0.99] disabled:cursor-wait disabled:bg-indigo-600"
+        >
+          {isScanning && scanMode === 'prescription' ? <TimerReset className="animate-spin" size={19} /> : <FileText size={19} />}
+          <span>{isScanning && scanMode === 'prescription' ? scanningLabel : 'Scan Prescription'}</span>
+          {!isScanning && <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] uppercase tracking-wide">Open Camera</span>}
+        </button>
+        {scanError && (
+          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-xs leading-5 text-rose-800">
+            <CircleAlert className="mt-0.5 shrink-0" size={15} />
+            <p>{scanError}</p>
+            <button aria-label="Dismiss error" onClick={onDismissError} className="ml-auto text-rose-500"><X size={14} /></button>
+          </div>
+        )}
+        {refillResult && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800">
+            <div className="flex items-start gap-2">
+              <Check className="mt-0.5 shrink-0" size={15} />
+              <div className="flex-1">
+                <p className="font-bold">Refill scanned successfully</p>
+                <p className="mt-1 text-[11px] text-emerald-700">Medicine: {refillResult.medication}</p>
+                <p className="text-[11px] text-emerald-700">Batch: {refillResult.batchNumber}</p>
+                {refillResult.manufacturer !== 'Not detected' && (
+                  <p className="text-[11px] text-emerald-700">Manufacturer: {refillResult.manufacturer}</p>
+                )}
+                <button
+                  onClick={onConfirmRefill}
+                  className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-600"
+                >
+                  <Check size={13} /> Confirm & Save
+                </button>
+              </div>
+              <button aria-label="Dismiss result" onClick={onDismissRefill} className="text-emerald-500"><X size={14} /></button>
+            </div>
           </div>
         )}
       </section>
@@ -981,135 +1085,47 @@ function DosageDetailView({ doses, onMarkDose, onClose }: { doses: Dose[]; onMar
             {doses.map((dose) => {
               const config = statusConfig[dose.status];
               const StatusIcon = config.icon;
+              const isTaken = dose.status === 'taken';
               return (
-                <div key={dose.id} className={`rounded-2xl border ${config.border} ${config.bg} p-4`}>
-                  <div className="flex items-start justify-between">
+                <div key={dose.id} className={`rounded-2xl border ${config.border} ${config.bg} p-4 transition-all duration-300 ${isTaken ? 'opacity-75' : 'opacity-100'}`}>
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className={`rounded-lg bg-white p-2 ${config.color}`}><Pill size={16} /></span>
                       <div>
-                        <p className="text-xs font-bold text-slate-900">{dose.medication} <span className="font-medium text-slate-500">({dose.amount})</span></p>
+                        <p className={`text-xs font-bold ${isTaken ? 'text-slate-500 line-through' : 'text-slate-900'}`}>{dose.medication} <span className="font-medium text-slate-500">({dose.amount})</span></p>
                         <p className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-400"><Clock size={11} /> {dose.time_label} · {dose.time}</p>
                       </div>
                     </div>
-                    <span className={`flex items-center gap-1 rounded-full bg-white px-2 py-1 text-[9px] font-bold ${config.color}`}>
-                      <StatusIcon size={11} /> {config.label}
-                    </span>
-                  </div>
-                  {dose.status !== 'taken' && (
-                    <button onClick={() => onMarkDose(dose.id)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-3 py-2.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-emerald-600 active:scale-[0.99]">
-                      <Check size={14} /> Mark as taken
+                    <button
+                      onClick={() => !isTaken && onMarkDose(dose.id)}
+                      disabled={isTaken}
+                      aria-label={isTaken ? 'Medicine taken' : 'Mark as taken'}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 transition-all duration-200 active:scale-90 ${
+                        isTaken
+                          ? 'border-emerald-500 bg-emerald-500 text-white'
+                          : 'border-slate-300 bg-white text-transparent hover:border-emerald-400 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <Check size={18} strokeWidth={3} />
                     </button>
+                  </div>
+                  {!isTaken && (
+                    <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+                      <span className={`flex items-center gap-1 text-[10px] font-bold ${config.color}`}>
+                        <StatusIcon size={11} /> {config.label}
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-400">Tap checkbox when taken</span>
+                    </div>
+                  )}
+                  {isTaken && (
+                    <div className="mt-2 flex items-center gap-1.5 border-t border-emerald-100 pt-2 text-[10px] font-semibold text-emerald-600">
+                      <CheckCircle2 size={12} /> Taken today
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CameraModal({ onClose, onCapture, onUploadFallback, error, setError }: { onClose: () => void; onCapture: () => void; onUploadFallback: () => void; error: string | null; setError: (value: string | null) => void }) {
-  useEscapeKey(onClose);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function startCamera() {
-      try {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('Camera API not supported in this browser.');
-        }
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => undefined);
-        }
-        setReady(true);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unable to access camera.';
-        setError(message);
-      }
-    }
-    startCamera();
-    return () => {
-      cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-    };
-  }, [setError]);
-
-  function handleClose() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    onClose();
-  }
-
-  function handleUploadFallback() {
-    handleClose();
-    onUploadFallback();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
-          <div className="flex items-center gap-2 text-white">
-            <Camera size={18} className="text-emerald-400" />
-            <span className="text-sm font-bold">Scan Refill — Live Camera</span>
-          </div>
-          <button aria-label="Close camera" onClick={handleClose} className="rounded-full bg-slate-800 p-1.5 text-slate-300 transition hover:bg-slate-700 hover:text-white">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="relative aspect-[3/4] w-full bg-slate-950">
-          <video ref={videoRef} playsInline muted className={`h-full w-full object-cover ${ready ? 'opacity-100' : 'opacity-0'}`} />
-          {!ready && !error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-400">
-              <TimerReset className="animate-spin" size={28} />
-              <p className="text-xs font-medium">Starting camera…</p>
-            </div>
-          )}
-          {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
-              <CircleAlert size={28} className="text-amber-400" />
-              <p className="text-xs font-medium">{error}</p>
-              <p className="text-[10px] text-slate-500">Allow camera access in your browser, or upload a photo instead.</p>
-              <button onClick={handleUploadFallback} className="mt-1 flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-600">
-                <ImagePlus size={15} /> Upload photo instead
-              </button>
-            </div>
-          )}
-          {ready && !error && (
-            <>
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-44 w-44 rounded-2xl border-2 border-emerald-400/80 shadow-[0_0_0_2000px_rgba(2,6,23,0.45)]" />
-              </div>
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-medium text-emerald-300">
-                Align blister pack within the frame
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flex items-center justify-center gap-4 px-4 py-4">
-          <button onClick={handleClose} className="rounded-xl border border-slate-600 bg-slate-800 px-5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700">
-            Cancel
-          </button>
-          <button onClick={onCapture} disabled={!ready || !!error} className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40">
-            <Camera size={15} /> Capture
-          </button>
         </div>
       </div>
     </div>
