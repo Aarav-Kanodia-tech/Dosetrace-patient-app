@@ -1,9 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  'https://qbmisrrqjosemwrxbnmi.supabase.co',
-  'PASTE_YOUR_SUPABASE_ANON_KEY_HERE'
-);
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
@@ -136,22 +130,7 @@ function App() {
   window.setTimeout(async () => {
     setIsScanning(false);
     setScanComplete(true);
-
-    // Sync to Supabase so the Lovable Doctor Dashboard updates live
-    try {
-      await supabase
-        .from('patient_sync')
-        .update({
-          chemist_status: 'Verified via Blister OCR',
-          inference_badge: 'Low Risk / Supply Verified',
-          confidence: 24,
-          last_updated: new Date().toISOString()
-        })
-        .eq('patient_id', 'PX-8802');
-    } catch (err) {
-      console.error('Supabase update failed:', err);
-    }
-  }, 1500);
+  },1500);
 }
   function handleMarkDose(id: string) {
     markDose(id);
