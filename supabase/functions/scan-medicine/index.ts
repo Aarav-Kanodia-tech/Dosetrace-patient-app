@@ -35,10 +35,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "AI vision service not configured. Add an OPENAI_API_KEY secret to the Supabase project." }),
+        JSON.stringify({ error: "Gemini API key not configured. Add GEMINI_API_KEY as a secret in Supabase." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -48,38 +48,53 @@ Deno.serve(async (req: Request) => {
         ? `You are a medical prescription reader. Analyze this prescription image and extract all medicines. Return ONLY a JSON object with a "medicines" array. Each medicine has: name (medicine name), amount (dosage like "500mg" or "1 tablet"), frequency (like "1x Daily", "2x Daily", "3x Daily", "1x Nightly", "As needed"), time_label (like "Morning", "Afternoon", "Night", "Day"), time (24-hour format like "08:00", "12:00", "22:00"). If you cannot read the image clearly, return an empty medicines array. Example: {"medicines":[{"name":"Metformin","amount":"500mg","frequency":"2x Daily","time_label":"Morning","time":"08:00"}]}`
         : `You are a medicine label reader. Analyze this medicine label/packaging image and extract the medicine details. Return ONLY a JSON object with: medication (medicine name with strength), batchNumber (batch or lot number), manufacturer (company name, or "Not detected" if not visible). If you cannot read the image clearly, set all fields to empty strings. Example: {"medication":"Metformin 500mg","batchNumber":"BN12345","manufacturer":"Sun Pharma"}`;
 
-    const apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: image } },
-            ],
+    const base64Data = image.includes(",") ? image.split(",")[1] : image;
+
+    const apiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: base64Data,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1000,
+            responseMimeType: "application/json",
           },
-        ],
-        max_tokens: 1000,
-        temperature: 0.1,
-      }),
-    });
+        }),
+      },
+    );
 
     if (!apiResponse.ok) {
-      const errText = await apiResponse.text();
+      const providerError = await apiResponse.text();
+      let detail = `AI service error: ${apiResponse.status}`;
+      try {
+        const parsedError = JSON.parse(providerError);
+        detail = parsedError.error?.message ?? detail;
+      } catch {
+        // keep generic message
+      }
       return new Response(
-        JSON.stringify({ error: `AI service error: ${apiResponse.status}` }),
+        JSON.stringify({ error: detail }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const apiData = await apiResponse.json();
-    const content: string = apiData.choices?.[0]?.message?.content ?? "";
+    const content: string = apiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
