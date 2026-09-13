@@ -41,8 +41,9 @@ import { useToast } from '@/components/Toast';
 import { ShimmerCard, ShimmerList } from '@/components/Shimmer';
 import { CameraModal, type CameraMode } from '@/components/CameraModal';
 import { PrescriptionReviewScreen } from '@/components/PrescriptionReviewScreen';
-import { scanPrescription, scanRefill, type ExtractedMedicine, type RefillInfo } from '@/lib/ocr';
+import type { ExtractedMedicine } from '@/lib/ocr';
 import { useScannedRefills, useSavePrescription } from '@/lib/scan';
+import { RefillReviewScreen } from '@/components/RefillReviewScreen';
 
 type Tab = 'home' | 'prescriptions' | 'labs' | 'family' | 'settings';
 type SettingsSubpage = 'consent' | 'services' | 'security' | 'clinic' | 'doctor';
@@ -99,9 +100,9 @@ function App() {
   const [scanMode, setScanMode] = useState<CameraMode>('refill');
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [refillResult, setRefillResult] = useState<RefillInfo | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [showRefillReview, setShowRefillReview] = useState(false);
   const [prescriptionMedicines, setPrescriptionMedicines] = useState<ExtractedMedicine[]>([]);
-  const [prescriptionRawText, setPrescriptionRawText] = useState('');
   const [showReview, setShowReview] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(true);
   const [dosageDetailOpen, setDosageDetailOpen] = useState(false);
@@ -131,42 +132,28 @@ function App() {
     if (isScanning) return;
     setScanMode(mode);
     setCameraError(null);
-    setRefillResult(null);
+    setCapturedPhoto(null);
     setPrescriptionMedicines([]);
-    setPrescriptionRawText('');
     setScanError(null);
     setCameraOpen(true);
   }
 
-  async function handleCapture(imageData: string) {
+  function handleCapture(imageData: string) {
     setCameraOpen(false);
-    setIsScanning(true);
-    setScanError(null);
-    setRefillResult(null);
-    setShowReview(false);
-
-    try {
-      if (scanMode === 'prescription') {
-        const { rawText, medicines } = await scanPrescription(imageData);
-        setPrescriptionRawText(rawText);
-        setPrescriptionMedicines(medicines);
-        setShowReview(true);
-      } else {
-        const { refill } = await scanRefill(imageData);
-        setRefillResult(refill);
-      }
-    } catch {
-      setScanError('Could not read the photo. Please try again or upload a clearer image.');
-    } finally {
-      setIsScanning(false);
+    setCapturedPhoto(imageData);
+    if (scanMode === 'prescription') {
+      setPrescriptionMedicines([]);
+      setShowReview(true);
+    } else {
+      setShowRefillReview(true);
     }
   }
 
-  async function handleConfirmRefill() {
-    if (!refillResult) return;
-    await saveRefill(refillResult.medication, refillResult.batchNumber);
-    showToast(`${refillResult.medication} refill confirmed`);
-    setRefillResult(null);
+  async function handleConfirmRefill(medication: string, batchNumber: string) {
+    await saveRefill(medication, batchNumber);
+    showToast(`${medication} refill confirmed`);
+    setShowRefillReview(false);
+    setCapturedPhoto(null);
   }
 
   async function handleSavePrescription(medicines: Array<{ medication: string; amount: string; frequency: string; time_label: string; time: string }>) {
@@ -175,7 +162,7 @@ function App() {
       showToast(`${medicines.length} medicine${medicines.length === 1 ? '' : 's'} added to your tracker`);
       setShowReview(false);
       setPrescriptionMedicines([]);
-      setPrescriptionRawText('');
+      setCapturedPhoto(null);
       refetchDoses();
     } else {
       showToast('Could not save medicines. Please try again.');
@@ -210,10 +197,7 @@ function App() {
                 isScanning={isScanning}
                 scanMode={scanMode}
                 scanError={scanError}
-                refillResult={refillResult}
                 onScan={handleScan}
-                onConfirmRefill={handleConfirmRefill}
-                onDismissRefill={() => setRefillResult(null)}
                 onDismissError={() => setScanError(null)}
                 privacyOpen={privacyOpen}
                 setPrivacyOpen={setPrivacyOpen}
@@ -256,13 +240,21 @@ function App() {
         <BottomNav activeTab={activeTab} setActiveTab={selectTab} />
       </div>
       {cameraOpen && <CameraModal mode={scanMode} onClose={() => setCameraOpen(false)} onCapture={handleCapture} error={cameraError} setError={setCameraError} />}
-      {showReview && (
+      {showReview && capturedPhoto && (
         <PrescriptionReviewScreen
           medicines={prescriptionMedicines}
-          rawText={prescriptionRawText}
+          photo={capturedPhoto}
           onSave={handleSavePrescription}
-          onCancel={() => { setShowReview(false); setPrescriptionMedicines([]); setPrescriptionRawText(''); }}
+          onCancel={() => { setShowReview(false); setPrescriptionMedicines([]); setCapturedPhoto(null); }}
           saving={savingPrescription}
+        />
+      )}
+      {showRefillReview && capturedPhoto && (
+        <RefillReviewScreen
+          photo={capturedPhoto}
+          onSave={handleConfirmRefill}
+          onCancel={() => { setShowRefillReview(false); setCapturedPhoto(null); }}
+          saving={false}
         />
       )}
       {dosageDetailOpen && <DosageDetailView doses={doses} onMarkDose={handleMarkDose} onClose={() => setDosageDetailOpen(false)} />}
@@ -298,10 +290,7 @@ function HomeView({
   isScanning,
   scanMode,
   scanError,
-  refillResult,
   onScan,
-  onConfirmRefill,
-  onDismissRefill,
   onDismissError,
   privacyOpen,
   setPrivacyOpen,
@@ -315,10 +304,7 @@ function HomeView({
   isScanning: boolean;
   scanMode: CameraMode;
   scanError: string | null;
-  refillResult: RefillInfo | null;
   onScan: (mode: CameraMode) => void;
-  onConfirmRefill: () => void;
-  onDismissRefill: () => void;
   onDismissError: () => void;
   privacyOpen: boolean;
   setPrivacyOpen: (value: boolean) => void;
@@ -329,7 +315,7 @@ function HomeView({
   dosesLoading: boolean;
   onOpenDosageDetail: () => void;
 }) {
-  const scanningLabel = scanMode === 'prescription' ? 'Reading prescription...' : 'Processing refill photo...';
+  const scanningLabel = scanMode === 'prescription' ? 'Opening prescription scanner...' : 'Opening refill scanner...';
 
   return (
     <div className="space-y-4">
@@ -366,28 +352,7 @@ function HomeView({
             <button aria-label="Dismiss error" onClick={onDismissError} className="ml-auto text-rose-500"><X size={14} /></button>
           </div>
         )}
-        {refillResult && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800">
-            <div className="flex items-start gap-2">
-              <Check className="mt-0.5 shrink-0" size={15} />
-              <div className="flex-1">
-                <p className="font-bold">Refill scanned successfully</p>
-                <p className="mt-1 text-[11px] text-emerald-700">Medicine: {refillResult.medication}</p>
-                <p className="text-[11px] text-emerald-700">Batch: {refillResult.batchNumber}</p>
-                {refillResult.manufacturer !== 'Not detected' && (
-                  <p className="text-[11px] text-emerald-700">Manufacturer: {refillResult.manufacturer}</p>
-                )}
-                <button
-                  onClick={onConfirmRefill}
-                  className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-600"
-                >
-                  <Check size={13} /> Confirm & Save
-                </button>
-              </div>
-              <button aria-label="Dismiss result" onClick={onDismissRefill} className="text-emerald-500"><X size={14} /></button>
-            </div>
-          </div>
-        )}
+
       </section>
       <FollowUpCard />
       <TelemetryCard />
