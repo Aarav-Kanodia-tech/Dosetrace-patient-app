@@ -186,7 +186,7 @@ function App() {
         </div>
         <BottomNav activeTab={activeTab} setActiveTab={selectTab} />
       </div>
-      {cameraOpen && <CameraModal onClose={() => setCameraOpen(false)} onCapture={handleCapture} error={cameraError} setError={setCameraError} />}
+      {cameraOpen && <CameraModal onClose={() => setCameraOpen(false)} onCapture={handleCapture} onUploadFallback={handleCapture} error={cameraError} setError={setCameraError} />}
       {dosageDetailOpen && <DosageDetailView doses={doses} onMarkDose={handleMarkDose} onClose={() => setDosageDetailOpen(false)} />}
       {notificationsOpen && <NotificationsPanel doses={doses} onClose={() => setNotificationsOpen(false)} />}
       {familyDetailMember && <FamilyMemberDetailView member={familyDetailMember} onClose={() => setFamilyDetailId(null)} />}
@@ -636,7 +636,7 @@ function buildReminders(doses: Dose[]): NotificationReminder[] {
     const baseName = rx.name.replace(/\s*\d+mg\s*|\s*\d+mcg\s*/i, '').trim().toLowerCase();
     refillDates[baseName] = rx.refillDate;
   }
-  return doses.map((dose, i) => {
+  return doses.map((dose) => {
     const baseName = dose.medication.toLowerCase();
     const refillDate = refillDates[baseName] ?? 'Oct 18, 2026';
     return {
@@ -644,7 +644,7 @@ function buildReminders(doses: Dose[]): NotificationReminder[] {
       medication: dose.medication,
       amount: dose.amount,
       time: dose.time,
-      timeLabel: dose.timeLabel,
+      timeLabel: dose.time_label,
       status: dose.status,
       refillDate,
     };
@@ -830,7 +830,7 @@ function DosageDetailView({ doses, onMarkDose, onClose }: { doses: Dose[]; onMar
   );
 }
 
-function CameraModal({ onClose, onCapture, error, setError }: { onClose: () => void; onCapture: () => void; error: string | null; setError: (value: string | null) => void }) {
+function CameraModal({ onClose, onCapture, onUploadFallback, error, setError }: { onClose: () => void; onCapture: () => void; onUploadFallback: () => void; error: string | null; setError: (value: string | null) => void }) {
   useEscapeKey(onClose);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -879,7 +879,7 @@ function CameraModal({ onClose, onCapture, error, setError }: { onClose: () => v
 
   function handleUploadFallback() {
     handleClose();
-    setScanComplete(true);
+    onUploadFallback();
   }
 
   return (
