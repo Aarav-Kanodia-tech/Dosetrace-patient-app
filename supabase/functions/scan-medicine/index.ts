@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
     const base64Data = image.includes(",") ? image.split(",")[1] : image;
 
     const apiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
